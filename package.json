@@ -1,11 +1,11 @@
 {
-  "name": "typescript-starter",
+  "name": "ts-union",
   "version": "1.0.0",
   "description": "algebraic data lib that looks similar to swift enums",
   "main": "build/main/index.js",
   "typings": "build/main/index.d.ts",
   "module": "build/module/index.js",
-  "repository": "https://github.com/YOUR_GITHUB_USER_NAME/ts-enum",
+  "repository": "https://github.com/twop/ts-union",
   "license": "MIT",
   "keywords": [],
   "scripts": {
@@ -69,7 +69,7 @@
     "tslint-config-prettier": "^1.8.0",
     "tslint-immutable": "^4.5.1",
     "typedoc": "^0.11.1",
-    "typescript": "^2.4.1"
+    "typescript": "^2.8.1"
   },
   "ava": {
     "failFast": true,
