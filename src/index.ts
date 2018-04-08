@@ -244,7 +244,7 @@ function createUnpackFunc<K extends keyof Record, Record extends RecordDict>(
 }
 
 function createMatch<Record extends RecordDict>(): MatchFunc<Record> {
-  const f = (val: any, cases: MatchCases<Record, any>): any => {
+  const evalMatch = (val: any, cases: MatchCases<Record, any>): any => {
     // first elem is always the key
     const key: keyof Record = val[0];
     const handler = (cases[key] as any) as MatchCaseFunc<
@@ -257,7 +257,8 @@ function createMatch<Record extends RecordDict>(): MatchFunc<Record> {
       : cases.default && cases.default(val);
   };
 
-  return (reverseCurry(f as any) as any) as MatchFunc<Record>;
+  return ((a: any, b?: any) =>
+    b ? evalMatch(a, b) : (val: any) => evalMatch(val, a)) as MatchFunc<Record>;
 }
 
 function invokeHandler<K extends keyof Record, Record extends RecordDict, Res>(
@@ -276,23 +277,4 @@ function invokeHandler<K extends keyof Record, Record extends RecordDict, Res>(
     default:
       throw new Error('Invalid value for matching');
   }
-}
-
-type ReverseCurriedFunc<A1, A2, R> = {
-  (a1: A1, a2: A2): R;
-  (a2: A2): (a1: A1) => R;
-};
-
-function reverseCurry<A1, A2, R, F extends (a1: A1, a2: A2) => R>(
-  f: F
-): ReverseCurriedFunc<A1, A2, R> {
-  const func = function reverseCurried(a1: A1 | A2, a2: A2 | undefined) {
-    if (arguments.length == 1) {
-      return (a: A1) => f(a, <A2>a1);
-    }
-
-    return f(<A1>a1, <A2>a2);
-  };
-
-  return (func as any) as ReverseCurriedFunc<A1, A2, R>;
 }

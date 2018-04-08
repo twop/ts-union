@@ -1,6 +1,6 @@
 # ts-union
 
-algebraic data lib that looks similar to swift enums
+Library for algebraic sum types that looks similar to swift enums. Inspired by [unionize](https://github.com/pelotom/unionize) and [F# discriminated-unions](https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/discriminated-unions)
 
 ## Installation
 
@@ -101,7 +101,7 @@ console.log(PaymentMethod.Check(15566909));
 // ['Check', 15566909]
 ```
 
-All values are arrays. The first element is the key to match against and the rest is payload. I decided not to expose that through typings but I might reconsider that in the future. Although you cannot use it for redux action you can _safely use it for redux state_. They are just arrays with values.
+All values are arrays. The first element is the key to match against and the rest is payload. I decided not to expose that through typings but I might reconsider that in the future. Although you cannot use it for redux action you can **safely use it for redux state**.
 
 ### Api
 
@@ -111,7 +111,7 @@ How to define shape
 const U = Union({
   Simple: simple(), // no payload
   One: of<string>(), // one argument
-  Const: ofConst(3), // one argument but always 3
+  Const: ofConst(3), // one constant argument that is baked in
   Two: of2<string, number>(), // two arguments
   Three: of3<string, number, boolean>() // three
 });
@@ -129,7 +129,7 @@ export type MatchFunc<Record> = {
 };
 ```
 
-if either accepts a function that will be invoked with a match and/or else clause.
+if either accepts a function that will be invoked (with a match) and/or else case.
 
 ```typescript
 // typedef for if case for one argument.
@@ -138,5 +138,4 @@ if either accepts a function that will be invoked with a match and/or else claus
     <R>(val: OpaqueUnion<Rec>, f: (a: A) => R): R | undefined;
     <R>(val: OpaqueUnion<Rec>, f: (a: A) => R, els: () => R): R;
 }
-};
 ```
