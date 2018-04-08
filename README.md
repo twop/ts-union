@@ -7,6 +7,7 @@ Tiny library (<1Kb gzipped) for algebraic sum types that looks similar to swift 
 ```
 npm add ts-union
 ```
+NOTE: uses features from typescript 2.8
 
 ## Usage
 
