@@ -95,7 +95,7 @@ type PaymentMethodType = typeof PaymentMethod.T;
 
 ## Api and implementation details
 
-If you will try to debug value for check you will see an array.
+If you will try to log the value for check you will see an array.
 
 ```typescript
 console.log(PaymentMethod.Check(15566909));
