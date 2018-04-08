@@ -14,6 +14,8 @@ NOTE: uses features from typescript 2.8
 ### Create
 
 ```typescript
+import { Union, simple, of, of2} from 'ts-union';
+
 const PaymentMethod = Union({
   Cash: simple(),
   Check: of<CheckNumber>(),
