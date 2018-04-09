@@ -1,37 +1,17 @@
-export const enum CaseType {
-  NoData = 0,
-  Const = -1,
-  One = 1,
-  Two = 2,
-  Three = 3
-}
-
-const noData: NoData = { tag: CaseType.NoData };
-const one = { tag: CaseType.One };
-const two = { tag: CaseType.Two };
-const three = { tag: CaseType.Three };
-
 export interface NoData {
-  readonly tag: CaseType.NoData;
+  readonly _none: 'none';
 }
 export interface Const<T> {
-  readonly tag: CaseType.Const;
-  readonly val: T;
+  readonly _const: T;
 }
 export interface One<T> {
-  readonly tag: CaseType.One;
-  readonly _arg: T;
+  readonly _one: T;
 }
 export interface Two<T1, T2> {
-  readonly tag: CaseType.Two;
-  readonly _arg1: T1;
-  readonly _arg2: T2;
+  readonly _two: T1 | T2;
 }
 export interface Three<T1, T2, T3> {
-  readonly tag: CaseType.Three;
-  readonly _arg1: T1;
-  readonly _arg2: T2;
-  readonly _arg3: T3;
+  readonly _three: T1 | T2 | T3;
 }
 
 export type Case<T1, T2, T3> =
@@ -51,11 +31,15 @@ export type ForbidReservedProps = {
   T?: never;
 } & ForbidDefault;
 
-export const simple = () => (noData as any) as NoData;
-export const of = <T>() => (one as any) as One<T>;
-export const ofConst = <T>(val: T): Const<T> => ({ tag: CaseType.Const, val });
-export const of2 = <T1, T2>() => (two as any) as Two<T1, T2>;
-export const of3 = <T1, T2, T3>() => (three as any) as Three<T1, T2, T3>;
+export type Types = {
+  (): NoData;
+  <T>(): One<T>;
+  <T>(val: T): Const<T>;
+  <T1, T2>(): Two<T1, T2>;
+  <T1, T2, T3>(): Three<T1, T2, T3>;
+};
+
+export const t: Types = ((val: any) => val) as any;
 
 export interface OpaqueUnion<Record> {
   readonly _opaqueToken: Record;
@@ -113,17 +97,29 @@ export type MatchFunc<Record> = {
 export type UnpackFunc<T, Rec> = T extends NoData
   ? {
       <R>(val: OpaqueUnion<Rec>, f: () => R): R | undefined;
-      <R>(val: OpaqueUnion<Rec>, f: () => R, els: () => R): R;
+      <R>(
+        val: OpaqueUnion<Rec>,
+        f: () => R,
+        els: (v: OpaqueUnion<Rec>) => R
+      ): R;
     }
   : T extends One<infer A>
     ? {
         <R>(val: OpaqueUnion<Rec>, f: (a: A) => R): R | undefined;
-        <R>(val: OpaqueUnion<Rec>, f: (a: A) => R, els: () => R): R;
+        <R>(
+          val: OpaqueUnion<Rec>,
+          f: (a: A) => R,
+          els: (v: OpaqueUnion<Rec>) => R
+        ): R;
       }
     : T extends Const<infer A>
       ? {
           <R>(val: OpaqueUnion<Rec>, f: (a: A) => R): R | undefined;
-          <R>(val: OpaqueUnion<Rec>, f: (a: A) => R, els: () => R): R;
+          <R>(
+            val: OpaqueUnion<Rec>,
+            f: (a: A) => R,
+            els: (v: OpaqueUnion<Rec>) => R
+          ): R;
         }
       : T extends Two<infer A1, infer A2>
         ? {
@@ -131,7 +127,7 @@ export type UnpackFunc<T, Rec> = T extends NoData
             <R>(
               val: OpaqueUnion<Rec>,
               f: (a1: A1, a2: A2) => R,
-              els: () => R
+              els: (v: OpaqueUnion<Rec>) => R
             ): R;
           }
         : T extends Three<infer A1, infer A2, infer A3>
@@ -142,7 +138,7 @@ export type UnpackFunc<T, Rec> = T extends NoData
               <R>(
                 val: OpaqueUnion<Rec>,
                 f: (a1: A1, a2: A2, a3: A3) => R,
-                els: () => R
+                els: (v: OpaqueUnion<Rec>) => R
               ): R;
             }
           : never;
@@ -180,25 +176,13 @@ function createCtor<K extends keyof Record, Record extends RecordDict>(
   key: K,
   rec: Record
 ): CreatorFunc<Record[K], OpaqueUnion<Record>> {
-  type Func = CreatorFunc<Record[K], OpaqueUnion<Record>>;
   const val: Case<any, any, any> = rec[key];
-
-  switch (val.tag) {
-    case CaseType.NoData: {
-      const res = [key];
-      return ((() => res) as any) as Func;
-    }
-    case CaseType.Const: {
-      const res = [key, val.val];
-      return ((() => res) as any) as Func;
-    }
-    case CaseType.One:
-      return (((a: any) => [key, a]) as any) as Func;
-    case CaseType.Two:
-      return (((a: any, b: any) => [key, a, b]) as any) as Func;
-    case CaseType.Three:
-      return (((a: any, b: any, c: any) => [key, a, b, c]) as any) as Func;
+  if (val !== undefined) {
+    const res = [key, val];
+    return ((() => res) as any) as any;
   }
+
+  return ((...args: any[]) => [key, ...args]) as any;
 }
 
 function createUnpack<Record extends RecordDict>(rec: Record): Unpack<Record> {
@@ -211,70 +195,21 @@ function createUnpack<Record extends RecordDict>(rec: Record): Unpack<Record> {
 
 function createUnpackFunc<K extends keyof Record, Record extends RecordDict>(
   key: K,
-  rec: Record
+  _rec: Record
 ): UnpackFunc<Record[K], Record> {
-  type Func = UnpackFunc<Record[K], Record>;
-  const val: Case<any, any, any> = rec[key];
-
-  switch (val.tag) {
-    case CaseType.NoData: {
-      return ((([k]: [K], f: () => any, els?: () => any) =>
-        k === key ? f() : els && els()) as any) as Func;
-    }
-    case CaseType.Const: {
-      return ((([k, c]: [K, any], f: (a: any) => any, els?: () => any) =>
-        k === key ? f(c) : els && els()) as any) as Func;
-    }
-    case CaseType.One:
-      return ((([k, a]: [K, any], f: (a: any) => any, els?: () => any) =>
-        k === key ? f(a) : els && els()) as any) as Func;
-    case CaseType.Two:
-      return (((
-        [k, a, b]: [K, any, any],
-        f: (a: any, b: any) => any,
-        els?: () => any
-      ) => (k === key ? f(a, b) : els && els())) as any) as Func;
-    case CaseType.Three:
-      return (((
-        [k, a, b, c]: [K, any, any, any],
-        f: (a: any, b: any, c: any) => any,
-        els?: () => any
-      ) => (k === key ? f(a, b, c) : els && els())) as any) as Func;
-  }
+  return ((val: any, f: (...args: any[]) => any, els?: (v: any) => any) =>
+    val[0] === key ? f(...val.slice(1)) : els && els(val)) as any;
 }
 
 function createMatch<Record extends RecordDict>(): MatchFunc<Record> {
   const evalMatch = (val: any, cases: MatchCases<Record, any>): any => {
     // first elem is always the key
-    const key: keyof Record = val[0];
-    const handler = (cases[key] as any) as MatchCaseFunc<
-      Record[typeof key],
-      any
-    >;
-
+    const handler = cases[val[0]] as any;
     return handler
-      ? invokeHandler(val, handler)
+      ? handler(...val.slice(1))
       : cases.default && cases.default(val);
   };
 
   return ((a: any, b?: any) =>
     b ? evalMatch(a, b) : (val: any) => evalMatch(val, a)) as MatchFunc<Record>;
-}
-
-function invokeHandler<K extends keyof Record, Record extends RecordDict, Res>(
-  val: any[],
-  handler: MatchCaseFunc<Record[K], Res>
-): Res {
-  switch (val.length) {
-    case 1:
-      return (<() => Res>handler)();
-    case 2:
-      return (<(a: any) => Res>handler)(val[1]);
-    case 3:
-      return (<(a: any, b: any) => Res>handler)(val[1], val[2]);
-    case 4:
-      return (<(a: any, b: any, c: any) => Res>handler)(val[1], val[2], val[3]);
-    default:
-      throw new Error('Invalid value for matching');
-  }
 }

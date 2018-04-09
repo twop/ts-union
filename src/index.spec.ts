@@ -1,13 +1,13 @@
 // tslint:disable:no-expression-statement
 import { test } from 'ava';
-import { Union, of, of2, of3, ofConst, simple } from './index';
+import { Union, t } from './index';
 
 const U = Union({
-  Simple: simple(),
-  One: of<string>(),
-  Const: ofConst(3),
-  Two: of2<string, number>(),
-  Three: of3<string, number, boolean>()
+  Simple: t(),
+  One: t<string>(),
+  Const: t(3),
+  Two: t<string, number>(),
+  Three: t<string, number, boolean>()
 });
 
 const { Simple, One, Two, Three, Const } = U;
@@ -28,11 +28,16 @@ test('unpacks const', t => {
   t.is(U.if.Const(si, n => n), undefined);
 });
 
+test('else case accepts the original object', t => {
+  const simple = Simple();
+  t.is(U.if.Const(simple, _ => Simple(), v => v), simple);
+});
+
 test('unpacks one arg', t => {
   const one = One('one');
   const c = Const();
   t.is(U.if.One(one, s => s), 'one');
-  t.is(U.if.One(c, s => s, () => 'els'), 'els');
+  t.is(U.if.One(c, s => s, _ => 'els'), 'els');
   t.is(U.if.One(c, s => s), undefined);
 });
 
@@ -123,21 +128,6 @@ test('switch deferred eval', t => {
   t.is(evalFunc(One('one')), 'one');
   t.is(evalFunc(Two('two', 2)), 'two2');
   t.is(evalFunc(Three('three', 3, true)), 'three3true');
-});
-
-test('switch throws with invalid array size', t => {
-  // this is for completness for the most part.
-  const invalidThree = ['Three', 'three', 1, true, 'extra'];
-
-  // it matches with three but the size doesn't match
-  t.throws(
-    () =>
-      U.match((invalidThree as any) as typeof U.T, {
-        Three: (s, n, b) => s + n.toString() + (b ? 'true' : 'false'),
-        default: throwErr
-      }),
-    'Invalid value for matching'
-  );
 });
 
 test('switch default case', t => {
