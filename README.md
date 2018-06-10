@@ -15,12 +15,12 @@ NOTE: uses features from typescript 2.8
 ### Create
 
 ```typescript
-import { Union, t } from 'ts-union';
+import { Union, of } from 'ts-union';
 
 const PaymentMethod = Union({
-  Cash: t(),
-  Check: t<CheckNumber>(),
-  CreditCard: t<CardType, CardNumber>()
+  Cash: of<void>(), // or just of()
+  Check: of<CheckNumber>(),
+  CreditCard: of<CardType, CardNumber>()
 });
 
 type CheckNumber = number;
@@ -35,7 +35,7 @@ const cash = PaymentMethod.Cash();
 const check = PaymentMethod.Check(15566909);
 const card = PaymentMethod.CreditCard('Visa', '1111-566-...');
 
-// or destructure for simplicity
+// or destructure to remove `PaymentMethod.` prefix.
 const { Cash, Check, CreditCard } = PaymentMethod;
 const anotherCheck = Check(566541123);
 ```
@@ -47,10 +47,10 @@ const str = PaymentMethod.match(cash, {
   Cash: () => 'cash',
   Check: n => `check num: ${n.toString()}`,
   CreditCard: (type, n) => `${type} ${n}`
-}); // cash
+});
 ```
 
-Also supports deferred (curried) matching and default case.
+Also supports deferred (curried) matching and `default` case.
 
 ```typescript
 const toStr = PaymentMethod.match({
@@ -58,13 +58,13 @@ const toStr = PaymentMethod.match({
   default: _v => 'not cash' // _v is the union obj
 });
 
-const str = toStr(card); //not cash
+const str = toStr(card); // "not cash"
 ```
 
 ### if (aka simplified match)
 
 ```typescript
-const str = PaymentMethod.if.Cash(cash, () => 'cash'); //cash
+const str = PaymentMethod.if.Cash(cash, () => 'cash'); // "cash"
 // typeof str === string | undefined
 ```
 
@@ -81,7 +81,7 @@ const str = PaymentMethod.if.Check(
 
 ### Type of resulted objects
 
-At the moment types of cash, check, card are opaque.
+At the moment types of union values are opaque. That allows me to experiment with different underlying data structures.
 
 ```typescript
 type CashType = typeof cash;
@@ -89,7 +89,7 @@ type CashType = typeof cash;
 // and it is the same for card and check
 ```
 
-The OpaqueUnion<...> type for PaymentMethod is accessible via T phantom property
+The `OpaqueUnion<...>` type for `PaymentMethod` is accessible via phantom property `T`
 
 ```typescript
 type PaymentMethodType = typeof PaymentMethod.T;
@@ -98,14 +98,14 @@ type PaymentMethodType = typeof PaymentMethod.T;
 
 ## Api and implementation details
 
-If you will try to log the value for check you will see an array.
+If you will try to log a union value you will see just an array.
 
 ```typescript
 console.log(PaymentMethod.Check(15566909));
-// ['Check', 15566909]
+// ['Check', [15566909]]
 ```
 
-All values are arrays. The first element is the key to match against and the rest is payload. I decided not to expose that through typings but I might reconsider that in the future. Although you cannot use it for redux action you can **safely use it for redux state**.
+All union values are arrays. The first element is the key to match and the second is payload. I decided not to expose that through typings but I might reconsider that in the future. Although you cannot use it for redux action you can **safely use it for redux state**.
 
 ### Api
 
@@ -113,36 +113,35 @@ How to define shape
 
 ```typescript
 const U = Union({
-  Simple: t(), // no payload
-  One: t<string>(), // one argument
-  Const: t(3), // one constant argument that is baked in
-  Two: t<string, number>(), // two arguments
-  Three: t<string, number, boolean>() // three
+  Simple: of(), // or of<void>(). no payload.
+  One: of<string>(), // one argument
+  Const: of(3), // one constant argument that is baked in
+  Two: of<string, number>(), // two arguments
+  Three: of<string, number, boolean>() // three
 });
 ```
 
-Let's take a closer look at `t` function
+Let's take a closer look at `of` function
 
 ```typescript
 export declare type Types = {
-  (): NoData;
-  <T>(): One<T>;
+  <T = void>(): T extends void ? NoData : One<T>;
   <T>(val: T): Const<T>;
   <T1, T2>(): Two<T1, T2>;
   <T1, T2, T3>(): Three<T1, T2, T3>;
 };
-export declare const t: Types;
+export declare const of: Types;
 ```
 
 the actual implementation is pretty simple:
 
 ```typescript
-export const t: Types = ((val: any) => val) as any;
+export const of: Types = ((val: any) => val) as any;
 ```
 
 We just capture the constant and don't really care about the rest. Typescript will guide us to provide proper number of args for each case.
 
-match accepts either a full set of props or a subset with default case.
+`match` accepts either a full set of props or a subset with a default case.
 
 ```typescript
 // typedef for match function. Note there is a curried version
@@ -154,7 +153,7 @@ export type MatchFunc<Record> = {
 };
 ```
 
-if either accepts a function that will be invoked (with a match) and/or else case.
+`if` either accepts a function that will be invoked (with a match) and/or else case.
 
 ```typescript
 // typedef for if case for one argument.
@@ -163,4 +162,19 @@ if either accepts a function that will be invoked (with a match) and/or else cas
     <R>(val: OpaqueUnion<Rec>, f: (a: A) => R): R | undefined;
     <R>(val: OpaqueUnion<Rec>, f: (a: A) => R, els: (v: OpaqueUnion<Rec>) => R): R;
 }
+```
+
+And that is the whole api.
+
+### Breaking changes from 1.1
+
+* `t` function to define shapes is renamed to 'of'.
+* There is a different underlying data structure. So if you persisted the values somewhere it won't be compatible with the new version.
+
+The actual change is pretty simple:
+
+```typescript
+type OldShape = [string, ...payload[any]];
+type NewShape = [string, payload[any]]; // ex
+const example = ["Check", [15654747]]; // Note: nested array
 ```

@@ -1,6 +1,6 @@
 {
   "name": "ts-union",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "ADT sum types in ts that look similar to swift enums",
   "main": "build/main/index.js",
   "typings": "build/main/index.d.ts",

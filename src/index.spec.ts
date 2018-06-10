@@ -1,13 +1,13 @@
 // tslint:disable:no-expression-statement
 import { test } from 'ava';
-import { Union, t } from './index';
+import { of, Union } from './index';
 
 const U = Union({
-  Simple: t(),
-  One: t<string>(),
-  Const: t(3),
-  Two: t<string, number>(),
-  Three: t<string, number, boolean>()
+  Simple: of<void>(),
+  One: of<string>(),
+  Const: of(3),
+  Two: of<string, number>(),
+  Three: of<string, number, boolean>()
 });
 
 const { Simple, One, Two, Three, Const } = U;
