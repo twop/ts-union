@@ -175,6 +175,17 @@ The actual change is pretty simple:
 
 ```typescript
 type OldShape = [string, ...payload[any]];
-type NewShape = [string, payload[any]]; // ex
-const example = ["Check", [15654747]]; // Note: nested array
+// Note: no nesting
+const oldShape = ["CreditCard",'Visa', '1111-566-...'];
+
+type NewShape = [string, payload[any]];
+// Note: captured payload is nested
+const newShape = ["CreditCard", ['Visa', '1111-566-...']];
+```
+
+That allows to reduce allocations and it opens up future api extensibility. Such as:
+
+```typescript
+// namespaces to avoid collisions.
+const withNamespace = ['CreditCard', ['Visa', '1111-566-...'], 'MyNamespace'];
 ```
