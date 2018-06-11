@@ -168,8 +168,8 @@ And that is the whole api.
 
 ### Breaking changes from 1.1
 
-* `t` function to define shapes is renamed to 'of'.
-* There is a different underlying data structure. So if you persisted the values somewhere it won't be compatible with the new version.
+* `t` function to define shapes is renamed to `of`.
+* There is a different underlying data structure. So if you persisted the values somewhere it wouldn't be compatible with the new version.
 
 The actual change is pretty simple:
 
