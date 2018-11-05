@@ -1,28 +1,15 @@
-export interface NoData {
-  readonly _none: 'none';
-}
 export interface Const<T> {
   readonly _const: T;
 }
-export interface One<T> {
-  readonly _one: T;
-}
-export interface Two<T1, T2> {
-  readonly _two: T1 | T2;
-}
-export interface Three<T1, T2, T3> {
-  readonly _three: T1 | T2 | T3;
+
+interface Generic {
+  opaque: 'TemplateToken';
 }
 
-export type Case<T1, T2, T3> =
-  | NoData
-  | Const<T1>
-  | One<T1>
-  | Two<T1, T2>
-  | Three<T1, T2, T3>;
+export type Case<T> = Of<T> | Const<T> | Generic;
 
 export interface RecordDict {
-  readonly [key: string]: Case<any, any, any>;
+  readonly [key: string]: Case<unknown>;
 }
 
 export type ForbidReservedProps = {
@@ -31,14 +18,21 @@ export type ForbidReservedProps = {
   readonly T?: never;
 } & ForbidDefault;
 
+interface Of<T> {
+  _opaque: T;
+}
+
 export interface Types {
-  <T = void>(): T extends void ? NoData : One<T>;
+  <T = void>(): T extends void ? Of<[]> : Of<[T]>;
   <T>(val: T): Const<T>;
-  <T1, T2>(): Two<T1, T2>;
-  <T1, T2, T3>(): Three<T1, T2, T3>;
+  <T1, T2>(): Of<[T1, T2]>;
+  <T1, T2, T3>(): Of<[T1, T2, T3]>;
 }
 
 export const of: Types = ((val: any) => val) as any;
+// export const of2: Types2 = ((val: any) => val) as any;
+
+// // export const of_
 
 export interface OpaqueUnion<Record> {
   readonly _opaqueToken: Record;
@@ -48,109 +42,142 @@ export type Constructors<Record> = {
   [T in keyof Record]: CreatorFunc<Record[T], OpaqueUnion<Record>>
 };
 
-export type Cases<Record, Result> = {
-  [T in keyof Record]: MatchCaseFunc<Record[T], Result>
+// export type Cases<Record, Result> = {
+//   [T in keyof Record]: MatchCaseFunc<Record[T], Result>
+// };
+
+export type CasesT<Record, Result, T1 = void> = {
+  [K in keyof Record]: MatchCaseFuncT<Record[K], Result, T1>
 };
 
-export interface ForbidDefault {
-  readonly default?: never;
+export interface OpaqueUnionT<Record, T1> {
+  readonly _opaqueToken: Record;
+  readonly template: T1;
 }
 
-export type MatchCases<Record, Result> =
-  | Cases<Record, Result> & ForbidDefault
-  | Partial<Cases<Record, Result>> & {
-      readonly default: (val: OpaqueUnion<Record>) => Result;
+export type UnionVal<Record, T1> = T1 extends void
+  ? OpaqueUnion<Record>
+  : OpaqueUnionT<Record, T1>;
+
+export type GenericUnionVal<Type, Val> = Val extends OpaqueUnion<infer Rec>
+  ? UnionVal<Rec, Type>
+  : Val extends OpaqueUnionT<infer Rec, unknown> ? UnionVal<Rec, Type> : never;
+
+export type ConstructorsT<Record> = {
+  [K in keyof Record]: CreatorFuncT<Record[K], Record>
+};
+
+export type CreatorFuncT<K, Record> = K extends Of<infer A>
+  ? A extends any[] ? <T = never>(...p: A) => UnionVal<Record, T> : never
+  : K extends Generic
+    ? <T>(val: T) => UnionVal<Record, T>
+    : K extends Const<unknown> ? <T = never>() => UnionVal<Record, T> : never;
+
+// const a: UnionType<typeof bla, number>;
+
+// const cases: CasesT<typeof bla, number, boolean> = {
+//   a: s => s.length,
+//   b: b => (b ? 1 : 0)
+// };
+
+// const ctrs: ConstructorsT<typeof bla> = undefined as any;
+// const r1 = ctrs.a<string>('a');
+// const r2 = ctrs.b(5);
+
+type MatchCaseFuncT<K, Res, P> = K extends Of<infer A>
+  ? A extends any[] ? (...p: A) => Res : never
+  : K extends Generic
+    ? (val: P) => Res
+    : K extends Const<infer C> ? (c: C) => Res : never;
+
+type ForbidDefault = {
+  default?: never;
+};
+
+type MatchCases<Record, Result, T> =
+  | CasesT<Record, Result, T> & ForbidDefault
+  | Partial<CasesT<Record, Result, T>> & {
+      readonly default: (val: UnionVal<Record, T>) => Result;
     };
 
-export type CreatorFunc<T, R> = T extends NoData
-  ? () => R
-  : T extends One<infer A>
-    ? (a: A) => R
-    : T extends Const<infer A>
-      ? () => R
-      : T extends Two<infer A1, infer A2>
-        ? (a1: A1, a2: A2) => R
-        : T extends Three<infer A1, infer A2, infer A3>
-          ? (a1: A1, a2: A2, a3: A3) => R
-          : never;
+type CreatorFunc<K, R> = K extends Of<infer A>
+  ? A extends any[] ? (...p: A) => R : never
+  : K extends Const<unknown> ? () => R : never;
 
-export type MatchCaseFunc<T, R> = T extends NoData
-  ? () => R
-  : T extends One<infer A>
-    ? (a: A) => R
-    : T extends Const<infer A>
-      ? (a: A) => R
-      : T extends Two<infer A1, infer A2>
-        ? (a1: A1, a2: A2) => R
-        : T extends Three<infer A1, infer A2, infer A3>
-          ? (a1: A1, a2: A2, a3: A3) => R
-          : never;
+// type Bla = string | number;
+// const t = of<Bla>();
 
-export interface MatchFunc<Record> {
-  <Result>(cases: MatchCases<Record, Result>): (
-    val: OpaqueUnion<Record>
+// const f: CreatorFunc<typeof t, boolean> = undefined as any;
+// f('a');
+
+// export type MatchCaseFunc<K, R> = K extends Of<infer A>
+//   ? A extends any[] ? (...p: A) => R : never
+//   : K extends Const<infer C> ? (c: C) => R : never;
+
+interface MatchFunc<Record> {
+  <Result, T = void>(cases: MatchCases<Record, Result, T>): (
+    val: UnionVal<Record, T>
   ) => Result;
-  <Result>(val: OpaqueUnion<Record>, cases: MatchCases<Record, Result>): Result;
+  <Result, T = void>(
+    val: UnionVal<Record, T>,
+    cases: MatchCases<Record, Result, T>
+  ): Result;
 }
 
-export type UnpackFunc<T, Rec> = T extends NoData
-  ? {
-      <R>(val: OpaqueUnion<Rec>, f: () => R): R | undefined;
-      <R>(
-        val: OpaqueUnion<Rec>,
-        f: () => R,
-        els: (v: OpaqueUnion<Rec>) => R
-      ): R;
-    }
-  : T extends One<infer A>
+type UnpackFunc<K, Rec> = K extends Of<infer A>
+  ? A extends any[]
     ? {
-        <R>(val: OpaqueUnion<Rec>, f: (a: A) => R): R | undefined;
-        <R>(
-          val: OpaqueUnion<Rec>,
-          f: (a: A) => R,
-          els: (v: OpaqueUnion<Rec>) => R
+        <R, T = void>(val: UnionVal<Rec, T>, f: (...p: A) => R): R | undefined;
+        <R, T = void>(
+          val: UnionVal<Rec, T>,
+          f: (...p: A) => R,
+          els: (v: UnionVal<Rec, T>) => R
         ): R;
       }
-    : T extends Const<infer A>
+    : never
+  : K extends Generic
+    ? {
+        <R, T = void>(val: UnionVal<Rec, T>, f: (val: T) => R): R | undefined;
+        <R, T = void>(
+          val: UnionVal<Rec, T>,
+          f: (val: T) => R,
+          els: (v: UnionVal<Rec, T>) => R
+        ): R;
+      }
+    : K extends Const<infer С>
       ? {
-          <R>(val: OpaqueUnion<Rec>, f: (a: A) => R): R | undefined;
-          <R>(
-            val: OpaqueUnion<Rec>,
-            f: (a: A) => R,
-            els: (v: OpaqueUnion<Rec>) => R
+          <R, T = void>(val: UnionVal<Rec, T>, f: (с: С) => R): R | undefined;
+          <R, T = void>(
+            val: UnionVal<Rec, T>,
+            f: (с: С) => R,
+            els: (v: UnionVal<Rec, T>) => R
           ): R;
         }
-      : T extends Two<infer A1, infer A2>
-        ? {
-            <R>(val: OpaqueUnion<Rec>, f: (a1: A1, a2: A2) => R): R | undefined;
-            <R>(
-              val: OpaqueUnion<Rec>,
-              f: (a1: A1, a2: A2) => R,
-              els: (v: OpaqueUnion<Rec>) => R
-            ): R;
-          }
-        : T extends Three<infer A1, infer A2, infer A3>
-          ? {
-              <R>(val: OpaqueUnion<Rec>, f: (a1: A1, a2: A2, a3: A3) => R):
-                | R
-                | undefined;
-              <R>(
-                val: OpaqueUnion<Rec>,
-                f: (a1: A1, a2: A2, a3: A3) => R,
-                els: (v: OpaqueUnion<Rec>) => R
-              ): R;
-            }
-          : never;
+      : never;
 
-export type Unpack<Record> = {
-  [T in keyof Record]: UnpackFunc<Record[T], Record>
-};
+type Unpack<Record> = { [K in keyof Record]: UnpackFunc<Record[K], Record> };
 
-export type UnionObj<Record> = Constructors<Record> & {
-  readonly match: MatchFunc<Record>;
-  readonly if: Unpack<Record>;
-  readonly T: OpaqueUnion<Record>;
-};
+export type UnionObj<Record, T1 = void> = {
+  match: MatchFunc<Record>;
+  if: Unpack<Record>;
+  T: UnionVal<Record, void>;
+} & (T1 extends void ? Constructors<Record> : ConstructorsT<Record>);
+
+export const extend = <U, Funcs>(
+  union: U,
+  funcs: (u: U) => Funcs
+): U extends UnionObj<infer _Rec, infer _Generic> ? U & Funcs : never => ({
+  ...(union as any),
+  ...(funcs as any)
+});
+
+export const GenericUnion = <Record extends RecordDict & ForbidReservedProps>(
+  ctor: (t1: Generic) => Record
+) =>
+  (Union<Record>(ctor((undefined as any) as Generic)) as any) as UnionObj<
+    Record,
+    'Generic'
+  >;
 
 export function Union<Record extends RecordDict & ForbidReservedProps>(
   record: Record
@@ -177,7 +204,7 @@ function createCtor<K extends keyof Record, Record extends RecordDict>(
   key: K,
   rec: Record
 ): CreatorFunc<Record[K], OpaqueUnion<Record>> {
-  const val: Case<any, any, any> = rec[key];
+  const val: Case<unknown> = rec[key];
   // tslint:disable-next-line:no-if-statement
   if (val !== undefined) {
     const res: ReadonlyArray<any> = [key, [val]];
@@ -206,7 +233,10 @@ function createUnpackFunc<K extends keyof Record, Record extends RecordDict>(
 }
 
 function createMatch<Record extends RecordDict>(): MatchFunc<Record> {
-  const evalMatch = (val: any, cases: MatchCases<Record, any>): any => {
+  const evalMatch = (
+    val: any,
+    cases: MatchCases<Record, unknown, unknown>
+  ): any => {
     // first elem is always the key
     const handler = cases[val[0]] as any;
     return handler ? handler(...val[1]) : cases.default && cases.default(val);
