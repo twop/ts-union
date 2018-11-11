@@ -1,7 +1,8 @@
 // tslint:disable:no-expression-statement
 import { test } from 'ava';
-import { GenericUnion, GenericUnionVal, of, Union } from './index';
+import { GenericValType, of, Union } from './index';
 
+// tslint:disable-next-line:no-object-literal-type-assertion
 const U = Union({
   Simple: of<void>(),
   One: of<string>(),
@@ -154,74 +155,104 @@ test('switch default case', t => {
   t.is(U.match(three, { default: _ => val }), val);
 });
 
-const Maybe = GenericUnion(T => ({
+const Maybe = Union(T => ({
   Nothing: of<void>(),
   Just: T
 }));
 
-test('bla', t => {
-  const { Nothing, Just } = Maybe;
+const { Nothing, Just } = Maybe;
 
-  const num = Just(5);
-  const str = Just('something');
+test('generic match', t => {
+  t.is(Maybe.match(Just(1), { Just: n => n + 1, default: throwErr }), 1);
+
+  const numToStr = Maybe.match({
+    Just: (n: number) => n.toString(),
+    Nothing: () => 'nothing'
+  });
+
+  t.is(numToStr(Just(1)), '1');
+  t.is(numToStr(Nothing<number>()), 'nothing');
+
+  const strLen = Maybe.match<number, string>({
+    Just: s => s.length,
+    Nothing: () => -1
+  });
+
+  t.is(strLen(Just('a')), 1);
+  t.is(strLen(Nothing<string>()), -1);
+});
+
+test('generic if', t => {
+  const one = Just(1);
   const nothing = Nothing<number>();
 
-  const res = Maybe.if.Just(num, n => n + 1, () => 2);
-  const res2 = Maybe.if.Just(str, n => n + 'aha!', () => ' oops');
+  t.is(Maybe.if.Just(one, n => n + 1), 2);
+  t.is(Maybe.if.Just(nothing, n => n), undefined);
+  t.is(Maybe.if.Nothing(nothing, () => 1), 1);
+});
 
-  const r3 = Maybe.match(num, { Just: n => n + 1, Nothing: () => 2 });
-  const r4 = Maybe.match<number, number>({
-    Just: n => n + 1,
-    Nothing: () => 2
-  });
+test('if can write a generic func like map or bind', t => {
+  type MaybeVal<T> = GenericValType<T, typeof Maybe.T>;
 
-  const r5 = Maybe.match(nothing, {
-    Just: n => n + 1,
-    Nothing: () => 2
-  });
-
-  type MaybeVal<T> = GenericUnionVal<T, typeof Maybe.T>;
-
-  // reverseCurry<MaybeVal<A>,(a: A) => B, MaybeVal<B> >(
-  interface MapFunc {
-    <A, B>(val: MaybeVal<A>, f: (a: A) => B): MaybeVal<B>;
-    <A, B>(f: (a: A) => B): (val: MaybeVal<A>) => MaybeVal<B>;
-  }
-  const evalMap = <A, B>(val: MaybeVal<A>, f: (a: A) => B) =>
+  const map = <A, B>(val: MaybeVal<A>, f: (a: A) => B) =>
     Maybe.if.Just(val, v => Just(f(v)), n => (n as unknown) as MaybeVal<B>);
 
-  const map = ((a: any, b?: any) =>
-    (b ? evalMap(a, b) : (v: any) => evalMap(v, a)) as any) as MapFunc;
-  //     return <A, B>(val: MaybeVal<A>) => evalMap(val, second as (a: A) => B);
-  //   }
-  //   return evalMap(first as MaybeVal<any>, second as (a: any) => any);
-  // };
+  const maybeOne = map(Just('a'), s => s.length);
 
-  // const curriedMap = reverseCurry(map);
+  t.is(Maybe.if.Just(maybeOne, n => n + 1), 2);
+
   const bind = <A, B>(val: MaybeVal<A>, f: (a: A) => MaybeVal<B>) =>
     Maybe.if.Just(val, a => f(a), n => (n as unknown) as MaybeVal<B>);
 
-  // const Maybe2 = extend(Maybe, ({ if: check, T }) => ({
-  //   map: <A, B>(val: GenericUnionVal<A, typeof T>, f: (a: A) => B) =>
-  //     check.Just(
-  //       val,
-  //       v => Just(f(v)),
-  //       n => (n as unknown) as GenericUnionVal<B, typeof Maybe.T>
-  //     )
-  // }));
-
-  const Maybe2 = { ...Maybe, map, bind };
-
-  const just4 = Maybe2.Just(4);
-
-  const r8 = Maybe2.bind(just4, n => Just(n.toString()));
-
-  const r7 = Maybe.if.Just(just4, n => n + 1, () => 3);
-
-  const r6 = Maybe2.map((n: number) => n.toString());
-  r6(Just(2));
-  // Maybe.match(val, { Nothing: () => Nothing<To>(), Just: v => Just(f(v)) });
-
-  r4(num);
-  // r4(str);
+  t.is(Maybe.if.Just(bind(Just(1), n => Just(n.toString())), s => s), '1');
 });
+
+test('we can have boolean and union values for cases', t => {
+  // related to https://github.com/Microsoft/TypeScript/issues/7294
+
+  const T = Union({
+    Bool: of<boolean>(),
+    StrOrNum: of<string | number>(),
+    Enum: of<'yes' | 'no'>(),
+    Void: of()
+  });
+
+  const toStr = T.match({
+    Void: () => 'void',
+    Bool: b => (b === true ? 'true' : b === false ? 'false' : throwErr()),
+    Enum: s => s,
+    StrOrNum: sn => (typeof sn === 'number' ? sn.toString() : sn)
+  });
+
+  t.is(toStr(T.Void()), 'void');
+  t.is(toStr(T.Bool(true)), 'true');
+  t.is(toStr(T.Enum('yes')), 'yes');
+  t.is(toStr(T.StrOrNum(1)), '1');
+  t.is(toStr(T.StrOrNum('F* yeah!')), 'F* yeah!');
+
+  t.is(T.if.Void(T.Void(), () => 'void'), 'void');
+
+  const G = Union(g => ({
+    Val: g,
+    Nope: of<'nope' | 100500>()
+  }));
+
+  type Guess<A> = GenericValType<A, typeof G.T>;
+
+  const valOr = <A>(val: Guess<A>, def: A) => G.if.Val(val, v => v, () => def);
+
+  t.is(valOr(G.Val(1), -1), 1);
+  t.is(valOr(G.Nope('nope'), -1), -1);
+  t.is(valOr(G.Nope(100500), -1), -1);
+});
+
+// reverseCurry<MaybeVal<A>,(a: A) => B, MaybeVal<B> >(
+// interface MapFunc {
+//   <A, B>(val: MaybeVal<A>, f: (a: A) => B): MaybeVal<B>;
+//   <A, B>(f: (a: A) => B): (val: MaybeVal<A>) => MaybeVal<B>;
+// }
+// const evalMap = <A, B>(val: MaybeVal<A>, f: (a: A) => B) =>
+//   Maybe.if.Just(val, v => Just(f(v)), n => (n as unknown) as MaybeVal<B>);
+
+// const map = ((a: any, b?: any) =>
+//   (b ? evalMap(a, b) : (v: any) => evalMap(v, a)) as any) as MapFunc;
