@@ -12,9 +12,9 @@ interface RecordDict {
   readonly [key: string]: Case<unknown>;
 }
 
-type ForbidDefault = {
+interface ForbidDefault {
   default?: never;
-};
+}
 
 type ForbidReservedProps = {
   readonly if?: never;

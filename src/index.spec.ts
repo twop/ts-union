@@ -1,4 +1,5 @@
 // tslint:disable:no-expression-statement
+// tslint:disable-next-line:no-implicit-dependencies
 import { test } from 'ava';
 import { GenericValType, of, Union } from './index';
 
@@ -163,7 +164,12 @@ const Maybe = Union(T => ({
 const { Nothing, Just } = Maybe;
 
 test('generic match', t => {
-  t.is(Maybe.match(Just(1), { Just: n => n + 1, default: throwErr }), 1);
+  const shouldBeTwo = Maybe.match(Just(1), {
+    Just: n => n + 1,
+    default: throwErr
+  });
+
+  t.is(shouldBeTwo, 2);
 
   const numToStr = Maybe.match({
     Just: (n: number) => n.toString(),
@@ -241,6 +247,11 @@ test('we can have boolean and union values for cases', t => {
 
   const valOr = <A>(val: Guess<A>, def: A) => G.if.Val(val, v => v, () => def);
 
+  const strOrNumVal = 'v' as string | number;
+
+  t.is(valOr(G.Val(strOrNumVal), 4), 'v');
+
+  t.is(valOr(G.Val(1), -1), 1);
   t.is(valOr(G.Val(1), -1), 1);
   t.is(valOr(G.Nope('nope'), -1), -1);
   t.is(valOr(G.Nope(100500), -1), -1);
