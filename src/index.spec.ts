@@ -213,6 +213,22 @@ test('if can write a generic func like map or bind', t => {
   t.is(Maybe.if.Just(bind(Just(1), n => Just(n.toString())), s => s), '1');
 });
 
+// Used for Readme.md example
+// const ReqResult = Union(TPayload => ({
+//   Pending: of<void>(),
+//   Ok: TPayload,
+//   Err: of<string | Error>()
+// }));
+
+// const res = ReqResult.Ok('this is awesome!');
+
+// const toStr = ReqResult.match(res, {
+//   Pending: () => 'Thinking...',
+//   Err: err =>
+//     typeof err === 'string' ? `Oops ${err}` : `Exception ${err.message}`,
+//   Ok: str => `Ok, ${str}`
+// });
+
 test('we can have boolean and union values for cases', t => {
   // related to https://github.com/Microsoft/TypeScript/issues/7294
 
@@ -256,14 +272,3 @@ test('we can have boolean and union values for cases', t => {
   t.is(valOr(G.Nope('nope'), -1), -1);
   t.is(valOr(G.Nope(100500), -1), -1);
 });
-
-// reverseCurry<MaybeVal<A>,(a: A) => B, MaybeVal<B> >(
-// interface MapFunc {
-//   <A, B>(val: MaybeVal<A>, f: (a: A) => B): MaybeVal<B>;
-//   <A, B>(f: (a: A) => B): (val: MaybeVal<A>) => MaybeVal<B>;
-// }
-// const evalMap = <A, B>(val: MaybeVal<A>, f: (a: A) => B) =>
-//   Maybe.if.Just(val, v => Just(f(v)), n => (n as unknown) as MaybeVal<B>);
-
-// const map = ((a: any, b?: any) =>
-//   (b ? evalMap(a, b) : (v: any) => evalMap(v, a)) as any) as MapFunc;

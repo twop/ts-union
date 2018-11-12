@@ -301,13 +301,4 @@ const createUnpackFunc = <K extends keyof Record, Record extends RecordDict>(
   ((val: any, f: (...args: any[]) => any, els?: (v: any) => any) =>
     val[0] === key ? f(...val[1]) : els && els(val)) as any;
 
-export {
-  Union,
-  of,
-  // UnionVal,
-  // UnionVal as OpaqueUnion, // backward compat
-  // UnionValG,
-  GenericValType,
-  UnionObj,
-  GenericUnionObj
-};
+export { Union, of, GenericValType, UnionObj, GenericUnionObj };

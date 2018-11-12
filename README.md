@@ -35,7 +35,7 @@ const cash = PaymentMethod.Cash();
 const check = PaymentMethod.Check(15566909);
 const card = PaymentMethod.CreditCard('Visa', '1111-566-...');
 
-// or destructure to remove `PaymentMethod.` prefix.
+// or destructure it to simplify construction
 const { Cash, Check, CreditCard } = PaymentMethod;
 const anotherCheck = Check(566541123);
 ```
@@ -64,11 +64,11 @@ const str = toStr(card); // "not cash"
 ### if (aka simplified match)
 
 ```typescript
-const str = PaymentMethod.if.Cash(cash, () => 'cash'); // "cash"
+const str = PaymentMethod.if.Cash(cash, () => 'yep'); // "yep"
 // typeof str === string | undefined
 ```
 
-You can provide else case as well. In that case 'undefined' type will be removed.
+You can provide else case as well, then 'undefined' type will be removed from the result.
 
 ```typescript
 // typeof str === string
@@ -79,21 +79,91 @@ const str = PaymentMethod.if.Check(
 ); // str === 'not check'
 ```
 
+### Generic Union
+
+```typescript
+// Pass a function that accepts a type token and returns a record
+const Maybe = Union(T => ({
+  Nothing: of<void>(),
+  Just: T
+}));
+```
+
+Note that `T` is a **variable** of the special type `Generic` that will be substituted with an actual type later on.
+
+This can be handy to model network request states (like in `Redux`):
+
+```typescript
+const ReqResult = Union(TPayload => ({
+  Pending: of<void>(),
+  Ok: TPayload,
+  Err: of<string | Error>()
+}));
+
+// type is UnionValG<string, ...>.
+const res = ReqResult.Ok('this is awesome!');
+
+const toStr = ReqResult.match(res, {
+  Pending: () => 'Thinking...',
+  Err: err =>
+    typeof err === 'string' ? `Oops ${err}` : `Exception ${err.message}`,
+  Ok: str => `Ok, ${str}`
+}); // 'Ok, this is awesome!'
+```
+
+Let's try to define a `map` and `bind` functions for `Maybe`:
+
+```typescript
+const { Nothing, Just } = Maybe;
+
+// GenericValType helper allows you to substitute Generic token type.
+type MaybeVal<T> = GenericValType<T, typeof Maybe.T>;
+
+const map = <A, B>(val: MaybeVal<A>, f: (a: A) => B) =>
+  Maybe.match(val, {
+    Just: v => Just(f(v)),
+    Nothing: () => Nothing<B>() // note that we have to explicitly provide B type here
+  });
+
+const bind = <A, B>(val: MaybeVal<A>, f: (a: A) => MaybeVal<B>) =>
+  Maybe.if.Just(val, a => f(a), n => (n as unknown) as MaybeVal<B>);
+
+map(Just('a'), s => s.length); // -> Just(1)
+bind(Just(100), n => Just(n.toString())); // -> Just('100')
+
+map(Nothing<string>(), s => s.length); // -> Nothing
+```
+
+And if you want to **add** these functions to `Maybe` union:
+
+```typescript
+const TempMaybe = Union(T => ({
+  Nothing: of<void>(),
+  Just: T
+}));
+
+const map = .....
+const bind = .....
+
+// TempMaybe is just an object. So this is perfectly fine
+export const Maybe = {...TempMaybe, map, bind};
+```
+
 ### Type of resulted objects
 
 At the moment types of union values are opaque. That allows me to experiment with different underlying data structures.
 
 ```typescript
 type CashType = typeof cash;
-// OpaqueUnion<{Cash:..., Check:..., CreditCard:...}>
+// UnionVal<{Cash:..., Check:..., CreditCard:...}>
 // and it is the same for card and check
 ```
 
-The `OpaqueUnion<...>` type for `PaymentMethod` is accessible via phantom property `T`
+The `UnionVal<...>` type for `PaymentMethod` is accessible via phantom property `T`
 
 ```typescript
 type PaymentMethodType = typeof PaymentMethod.T;
-// OpaqueUnion<{Cash:..., Check:..., CreditCard:...}>
+// UnionVal<{Cash:..., Check:..., CreditCard:...}>
 ```
 
 ## Api and implementation details
@@ -119,18 +189,24 @@ const U = Union({
   Two: of<string, number>(), // two arguments
   Three: of<string, number, boolean>() // three
 });
+
+// generic version
+const Option = Union(T => ({
+  None: of<void>(),
+  Some: T // Note: here T is a value not a type.
+}));
 ```
 
 Let's take a closer look at `of` function
 
 ```typescript
-export declare type Types = {
-  <T = void>(): T extends void ? NoData : One<T>;
+interface Types {
+  <T = void>(): Of<[T]>;
   <T>(val: T): Const<T>;
-  <T1, T2>(): Two<T1, T2>;
-  <T1, T2, T3>(): Three<T1, T2, T3>;
-};
-export declare const of: Types;
+  <T1, T2>(): Of<[T1, T2]>;
+  <T1, T2, T3>(): Of<[T1, T2, T3]>;
+}
+declare const of: Types;
 ```
 
 the actual implementation is pretty simple:
@@ -147,9 +223,9 @@ We just capture the constant and don't really care about the rest. Typescript wi
 // typedef for match function. Note there is a curried version
 export type MatchFunc<Record> = {
   <Result>(cases: MatchCases<Record, Result>): (
-    val: OpaqueUnion<Record>
+    val: UnionVal<Record>
   ) => Result;
-  <Result>(val: OpaqueUnion<Record>, cases: MatchCases<Record, Result>): Result;
+  <Result>(val: UnionVal<Record>, cases: MatchCases<Record, Result>): Result;
 };
 ```
 
@@ -159,28 +235,42 @@ export type MatchFunc<Record> = {
 // typedef for if case for one argument.
 // Note it doesn't throw but can return undefined
 {
-    <R>(val: OpaqueUnion<Rec>, f: (a: A) => R): R | undefined;
-    <R>(val: OpaqueUnion<Rec>, f: (a: A) => R, els: (v: OpaqueUnion<Rec>) => R): R;
+    <R>(val: UnionVal<Rec>, f: (a: A) => R): R | undefined;
+    <R>(val: UnionVal<Rec>, f: (a: A) => R, els: (v: UnionVal<Rec>) => R): R;
 }
 ```
 
 And that is the whole api.
 
-### Breaking changes from 1.1
+### Technically breaking changes going 1.2 -> 2.0
 
-* `t` function to define shapes is renamed to `of`.
-* There is a different underlying data structure. So if you persisted the values somewhere it wouldn't be compatible with the new version.
+There should be no breaking changes but I cut the exported types to reduce api surface.
+
+```typescript
+export {
+  Union, // the main entry point function
+  of, // helper to define cases payload
+  GenericValType, // helper type for working with generic unions
+  UnionObj, // Non generic union object: Constructors, match, if
+  GenericUnionObj // generic version of it
+};
+```
+
+### Breaking changes going 1.1 -> 1.2
+
+- `t` function to define shapes is renamed to `of`.
+- There is a different underlying data structure. So if you persisted the values somewhere it wouldn't be compatible with the new version.
 
 The actual change is pretty simple:
 
 ```typescript
 type OldShape = [string, ...payload[any]];
 // Note: no nesting
-const oldShape = ["CreditCard",'Visa', '1111-566-...'];
+const oldShape = ['CreditCard', 'Visa', '1111-566-...'];
 
 type NewShape = [string, payload[any]];
 // Note: captured payload is nested
-const newShape = ["CreditCard", ['Visa', '1111-566-...']];
+const newShape = ['CreditCard', ['Visa', '1111-566-...']];
 ```
 
 That allows to reduce allocations and it opens up future api extensibility. Such as:
