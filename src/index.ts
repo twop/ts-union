@@ -70,27 +70,49 @@ type CasesG<Record, Result, P> = {
 
 // --------------------------------------------------------
 type CreatorFunc<K, UVal> = K extends Of<infer A>
-  ? A extends [void] ? () => UVal : A extends any[] ? (...p: A) => UVal : never
-  : K extends Const<unknown> ? () => UVal : never;
+  ? A extends [void]
+    ? () => UVal
+    : A extends any[]
+    ? (...p: A) => UVal
+    : never
+  : K extends Const<unknown>
+  ? () => UVal
+  : never;
 
 type CreatorFuncG<K, Rec> = K extends Of<infer A>
   ? A extends [void]
     ? <P = never>() => UnionValG<P, Rec>
-    : A extends any[] ? <P = never>(...p: A) => UnionValG<P, Rec> : never
+    : A extends any[]
+    ? <P = never>(...p: A) => UnionValG<P, Rec>
+    : never
   : K extends Generic
-    ? <P>(val: P) => UnionValG<P, Rec>
-    : K extends Const<unknown> ? <P = never>() => UnionValG<P, Rec> : never;
+  ? <P>(val: P) => UnionValG<P, Rec>
+  : K extends Const<unknown>
+  ? <P = never>() => UnionValG<P, Rec>
+  : never;
 
 // --------------------------------------------------------
 type MatchCaseFunc<K, Res> = K extends Of<infer A>
-  ? A extends [void] ? () => Res : A extends any[] ? (...p: A) => Res : never
-  : K extends Const<infer C> ? (c: C) => Res : never;
+  ? A extends [void]
+    ? () => Res
+    : A extends any[]
+    ? (...p: A) => Res
+    : never
+  : K extends Const<infer C>
+  ? (c: C) => Res
+  : never;
 
 type MatchCaseFuncG<K, Res, P> = K extends Of<infer A>
-  ? A extends [void] ? () => Res : A extends any[] ? (...p: A) => Res : never
+  ? A extends [void]
+    ? () => Res
+    : A extends any[]
+    ? (...p: A) => Res
+    : never
   : K extends Generic
-    ? (val: P) => Res
-    : K extends Const<infer C> ? (c: C) => Res : never;
+  ? (val: P) => Res
+  : K extends Const<infer C>
+  ? (c: C) => Res
+  : never;
 
 // --------------------------------------------------------
 type MatchCases<Record, Result> =
@@ -130,25 +152,21 @@ type UnpackFunc<K, Rec> = K extends Of<infer A>
         <R>(val: UnionVal<Rec>, f: () => R, els: (v: UnionVal<Rec>) => R): R;
       }
     : A extends any[]
-      ? {
-          <R>(val: UnionVal<Rec>, f: (...p: A) => R): R | undefined;
-          <R>(
-            val: UnionVal<Rec>,
-            f: (...p: A) => R,
-            els: (v: UnionVal<Rec>) => R
-          ): R;
-        }
-      : never
-  : K extends Const<infer С>
     ? {
-        <R>(val: UnionVal<Rec>, f: (с: С) => R): R | undefined;
+        <R>(val: UnionVal<Rec>, f: (...p: A) => R): R | undefined;
         <R>(
           val: UnionVal<Rec>,
-          f: (с: С) => R,
+          f: (...p: A) => R,
           els: (v: UnionVal<Rec>) => R
         ): R;
       }
-    : never;
+    : never
+  : K extends Const<infer С>
+  ? {
+      <R>(val: UnionVal<Rec>, f: (с: С) => R): R | undefined;
+      <R>(val: UnionVal<Rec>, f: (с: С) => R, els: (v: UnionVal<Rec>) => R): R;
+    }
+  : never;
 
 type UnpackFuncG<K, Rec> = K extends Of<infer A>
   ? A extends [void]
@@ -161,34 +179,34 @@ type UnpackFuncG<K, Rec> = K extends Of<infer A>
         ): R;
       }
     : A extends any[]
-      ? {
-          <R, P>(val: UnionValG<P, Rec>, f: (...p: A) => R): R | undefined;
-          <R, P>(
-            val: UnionValG<P, Rec>,
-            f: (...p: A) => R,
-            els: (v: UnionValG<P, Rec>) => R
-          ): R;
-        }
-      : never
-  : K extends Generic
     ? {
-        <R, P>(val: UnionValG<P, Rec>, f: (val: P) => R): R | undefined;
+        <R, P>(val: UnionValG<P, Rec>, f: (...p: A) => R): R | undefined;
         <R, P>(
           val: UnionValG<P, Rec>,
-          f: (val: P) => R,
+          f: (...p: A) => R,
           els: (v: UnionValG<P, Rec>) => R
         ): R;
       }
-    : K extends Const<infer С>
-      ? {
-          <R, P>(val: UnionValG<P, Rec>, f: (с: С) => R): R | undefined;
-          <R, P>(
-            val: UnionValG<P, Rec>,
-            f: (с: С) => R,
-            els: (v: UnionValG<P, Rec>) => R
-          ): R;
-        }
-      : never;
+    : never
+  : K extends Generic
+  ? {
+      <R, P>(val: UnionValG<P, Rec>, f: (val: P) => R): R | undefined;
+      <R, P>(
+        val: UnionValG<P, Rec>,
+        f: (val: P) => R,
+        els: (v: UnionValG<P, Rec>) => R
+      ): R;
+    }
+  : K extends Const<infer С>
+  ? {
+      <R, P>(val: UnionValG<P, Rec>, f: (с: С) => R): R | undefined;
+      <R, P>(
+        val: UnionValG<P, Rec>,
+        f: (с: С) => R,
+        els: (v: UnionValG<P, Rec>) => R
+      ): R;
+    }
+  : never;
 
 // --------------------------------------------------------
 type Unpack<Rec> = { [K in keyof Rec]: UnpackFunc<Rec[K], Rec> };
@@ -286,9 +304,9 @@ const createUnpackFunc = <K extends keyof Record, Record extends RecordDict>(
 export {
   Union,
   of,
-  UnionVal,
-  UnionVal as OpaqueUnion, // backward compat
-  UnionValG,
+  // UnionVal,
+  // UnionVal as OpaqueUnion, // backward compat
+  // UnionValG,
   GenericValType,
   UnionObj,
   GenericUnionObj
