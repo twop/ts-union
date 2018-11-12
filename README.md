@@ -103,7 +103,7 @@ const ReqResult = Union(TPayload => ({
 // type is UnionValG<string, ...>.
 const res = ReqResult.Ok('this is awesome!');
 
-const toStr = ReqResult.match(res, {
+const status = ReqResult.match(res, {
   Pending: () => 'Thinking...',
   Err: err =>
     typeof err === 'string' ? `Oops ${err}` : `Exception ${err.message}`,
