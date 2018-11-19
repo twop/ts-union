@@ -156,9 +156,9 @@ test('switch default case', t => {
   t.is(U.match(three, { default: _ => val }), val);
 });
 
-const Maybe = Union(T => ({
+const Maybe = Union(a => ({
   Nothing: of<void>(),
-  Just: T
+  Just: of(a)
 }));
 
 const { Nothing, Just } = Maybe;
@@ -254,8 +254,8 @@ test('we can have boolean and union values for cases', t => {
 
   t.is(T.if.Void(T.Void(), () => 'void'), 'void');
 
-  const G = Union(g => ({
-    Val: g,
+  const G = Union(a => ({
+    Val: of(a),
     Nope: of<'nope' | 100500>()
   }));
 

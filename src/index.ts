@@ -3,10 +3,10 @@ export interface Const<T> {
 }
 
 interface Generic {
-  opaque: 'GenericToken';
+  opaque: 'Generic is a token type that is going to be replaced with a real type';
 }
 
-type Case<T> = Of<T> | Const<T> | Generic;
+type Case<T> = Of<T> | Const<T>;
 
 interface RecordDict {
   readonly [key: string]: Case<unknown>;
@@ -30,6 +30,7 @@ interface Of<T> {
 
 interface Types {
   <T = void>(): Of<[T]>;
+  (g: Generic): Of<[Generic]>;
   <T>(val: T): Const<T>;
   <T1, T2>(): Of<[T1, T2]>;
   <T1, T2, T3>(): Of<[T1, T2, T3]>;
@@ -82,11 +83,11 @@ type CreatorFunc<K, UVal> = K extends Of<infer A>
 type CreatorFuncG<K, Rec> = K extends Of<infer A>
   ? A extends [void]
     ? <P = never>() => UnionValG<P, Rec>
+    : A extends [Generic]
+    ? <P>(val: P) => UnionValG<P, Rec>
     : A extends any[]
     ? <P = never>(...p: A) => UnionValG<P, Rec>
     : never
-  : K extends Generic
-  ? <P>(val: P) => UnionValG<P, Rec>
   : K extends Const<unknown>
   ? <P = never>() => UnionValG<P, Rec>
   : never;
@@ -105,11 +106,11 @@ type MatchCaseFunc<K, Res> = K extends Of<infer A>
 type MatchCaseFuncG<K, Res, P> = K extends Of<infer A>
   ? A extends [void]
     ? () => Res
+    : A extends [Generic]
+    ? (val: P) => Res
     : A extends any[]
     ? (...p: A) => Res
     : never
-  : K extends Generic
-  ? (val: P) => Res
   : K extends Const<infer C>
   ? (c: C) => Res
   : never;
@@ -178,6 +179,15 @@ type UnpackFuncG<K, Rec> = K extends Of<infer A>
           els: (v: UnionValG<P, Rec>) => R
         ): R;
       }
+    : A extends [Generic]
+    ? {
+        <R, P>(val: UnionValG<P, Rec>, f: (val: P) => R): R | undefined;
+        <R, P>(
+          val: UnionValG<P, Rec>,
+          f: (val: P) => R,
+          els: (v: UnionValG<P, Rec>) => R
+        ): R;
+      }
     : A extends any[]
     ? {
         <R, P>(val: UnionValG<P, Rec>, f: (...p: A) => R): R | undefined;
@@ -188,15 +198,6 @@ type UnpackFuncG<K, Rec> = K extends Of<infer A>
         ): R;
       }
     : never
-  : K extends Generic
-  ? {
-      <R, P>(val: UnionValG<P, Rec>, f: (val: P) => R): R | undefined;
-      <R, P>(
-        val: UnionValG<P, Rec>,
-        f: (val: P) => R,
-        els: (v: UnionValG<P, Rec>) => R
-      ): R;
-    }
   : K extends Const<infer С>
   ? {
       <R, P>(val: UnionValG<P, Rec>, f: (с: С) => R): R | undefined;

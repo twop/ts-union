@@ -1,6 +1,6 @@
 # ts-union
 
-Tiny library (1Kb unzipped) for algebraic sum types that looks similar to swift enums. Inspired by [unionize](https://github.com/pelotom/unionize) and [F# discriminated-unions](https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/discriminated-unions)
+Tiny library (<1Kb unminified & unzipped) for algebraic sum types in typescript. Inspired by [unionize](https://github.com/pelotom/unionize) and [F# discriminated-unions](https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/discriminated-unions) (and other ML languages)
 
 ## Installation
 
@@ -8,11 +8,11 @@ Tiny library (1Kb unzipped) for algebraic sum types that looks similar to swift 
 npm add ts-union
 ```
 
-NOTE: uses features from typescript 2.8
+NOTE: uses features from typescript 3.0 (such as `unknown` type)
 
 ## Usage
 
-### Create
+### Define
 
 ```typescript
 import { Union, of } from 'ts-union';
@@ -28,19 +28,19 @@ type CardType = 'MasterCard' | 'Visa';
 type CardNumber = string;
 ```
 
-### Type constructors
+### Construct
 
 ```typescript
 const cash = PaymentMethod.Cash();
 const check = PaymentMethod.Check(15566909);
 const card = PaymentMethod.CreditCard('Visa', '1111-566-...');
 
-// or destructure it to simplify construction
+// or destructure it to simplify construction :)
 const { Cash, Check, CreditCard } = PaymentMethod;
 const anotherCheck = Check(566541123);
 ```
 
-### Matching
+### `match`
 
 ```typescript
 const str = PaymentMethod.match(cash, {
@@ -61,7 +61,7 @@ const toStr = PaymentMethod.match({
 const str = toStr(card); // "not cash"
 ```
 
-### if (aka simplified match)
+### `if` (aka simplified match)
 
 ```typescript
 const str = PaymentMethod.if.Cash(cash, () => 'yep'); // "yep"
@@ -79,28 +79,28 @@ const str = PaymentMethod.if.Check(
 ); // str === 'not check'
 ```
 
-### Generic Union
+### Generic version
 
 ```typescript
 // Pass a function that accepts a type token and returns a record
-const Maybe = Union(T => ({
+const Maybe = Union(val => ({
   Nothing: of<void>(),
-  Just: T
+  Just: of(val) // Just has type Of<[Generic]>
 }));
 ```
 
-Note that `T` is a **variable** of the special type `Generic` that will be substituted with an actual type later on.
+Note that `val` is a **value** of the special type `Generic` that will be substituted with an actual type later on. It is just a variable name, pls feel free to name it whatever you feel like :) Maybe `a`, `T` or `TPayload`?
 
-This can be handy to model network request states (like in `Redux`):
+This feature can be handy to model network requests (like in `Redux`):
 
 ```typescript
-const ReqResult = Union(TPayload => ({
+const ReqResult = Union(data => ({
   Pending: of<void>(),
-  Ok: TPayload,
+  Ok: of(data),
   Err: of<string | Error>()
 }));
 
-// type is UnionValG<string, ...>.
+// res is inferred as UnionValG<string, ...>
 const res = ReqResult.Ok('this is awesome!');
 
 const status = ReqResult.match(res, {
@@ -111,12 +111,12 @@ const status = ReqResult.match(res, {
 }); // 'Ok, this is awesome!'
 ```
 
-Let's try to define a `map` and `bind` functions for `Maybe`:
+Let's try to build `map` and `bind` functions for `Maybe`:
 
 ```typescript
 const { Nothing, Just } = Maybe;
 
-// GenericValType helper allows you to substitute Generic token type.
+// GenericValType is a helper that allows you to substitute Generic token type.
 type MaybeVal<T> = GenericValType<T, typeof Maybe.T>;
 
 const map = <A, B>(val: MaybeVal<A>, f: (a: A) => B) =>
@@ -134,24 +134,24 @@ bind(Just(100), n => Just(n.toString())); // -> Just('100')
 map(Nothing<string>(), s => s.length); // -> Nothing
 ```
 
-And if you want to **add** these functions to `Maybe` union:
+And if you want to **extend** `Maybe` with these functions:
 
 ```typescript
-const TempMaybe = Union(T => ({
-  Nothing: of<void>(),
-  Just: T
+const TempMaybe = Union(val => ({
+  Nothing: of(),
+  Just: of(val)
 }));
 
 const map = .....
 const bind = .....
 
-// TempMaybe is just an object. So this is perfectly fine
+// TempMaybe is just an object, so this is perfectly legit
 export const Maybe = {...TempMaybe, map, bind};
 ```
 
 ### Type of resulted objects
 
-At the moment types of union values are opaque. That allows me to experiment with different underlying data structures.
+Atm types of union values are opaque. That allows me to experiment with different underlying data structures.
 
 ```typescript
 type CashType = typeof cash;
@@ -175,13 +175,15 @@ console.log(PaymentMethod.Check(15566909));
 // ['Check', [15566909]]
 ```
 
-All union values are arrays. The first element is the key to match and the second is payload. I decided not to expose that through typings but I might reconsider that in the future. Although you cannot use it for redux action you can **safely use it for redux state**.
+All union values are arrays. The first element is the case key and the second is payload array. I decided not to expose that through typings but I might reconsider that in the future. You **cannot** use it for redux actions, however you can **safely use it for redux state**.
 
 ### Api
 
-How to define shape
+Use `Union` to define shape
 
 ```typescript
+import { Union, of } from 'ts-union';
+
 const U = Union({
   Simple: of(), // or of<void>(). no payload.
   One: of<string>(), // one argument
@@ -191,9 +193,9 @@ const U = Union({
 });
 
 // generic version
-const Option = Union(T => ({
+const Option = Union(t => ({
   None: of<void>(),
-  Some: T // Note: here T is a value not a type.
+  Some: of(t) // Note: t is a value of the special type Generic
 }));
 ```
 
@@ -202,6 +204,7 @@ Let's take a closer look at `of` function
 ```typescript
 interface Types {
   <T = void>(): Of<[T]>;
+  (g: Generic): Of<[Generic]>;
   <T>(val: T): Const<T>;
   <T1, T2>(): Of<[T1, T2]>;
   <T1, T2, T3>(): Of<[T1, T2, T3]>;
@@ -240,11 +243,24 @@ export type MatchFunc<Record> = {
 }
 ```
 
+`GenericValType` is a type that helps with generic union values. It just replaces `Generic` token type with provided `Type`.
+
+```typescript
+type GenericValType<Type, Val> = Val extends UnionValG<infer _Type, infer Rec>
+  ? UnionValG<Type, Rec>
+  : never;
+
+// Example
+import { Union, of, GenericValType } from 'ts-union';
+const Maybe = Union(t => ({ Nothing: of(), Just: of(t) }));
+type MaybeVal<T> = GenericValType<T, typeof Maybe.T>;
+```
+
 And that is the whole api.
 
 ### Technically breaking changes going 1.2 -> 2.0
 
-There should be no breaking changes but I cut the exported types to reduce api surface.
+There should be no breaking changes but I removed some exported types to reduce api surface.
 
 ```typescript
 export {
