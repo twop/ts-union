@@ -15,7 +15,7 @@
   "scripts": {
     "info": "npm-scripts-info",
     "build": "run-s clean && run-p build:*",
-    "build:ьфшт": "tsc -p tsconfig.json",
+    "build:main": "tsc -p tsconfig.json",
     "build:module": "tsc -p tsconfig.module.json",
     "fix": "run-s fix:*",
     "fix:prettier": "prettier \"src/**/*.ts\" --write",
