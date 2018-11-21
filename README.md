@@ -166,7 +166,7 @@ type PaymentMethodType = typeof PaymentMethod.T;
 // UnionVal<{Cash:..., Check:..., CreditCard:...}>
 ```
 
-## Api and implementation details
+## API and implementation details
 
 If you will try to log a union value you will see just an array.
 
@@ -177,7 +177,7 @@ console.log(PaymentMethod.Check(15566909));
 
 All union values are arrays. The first element is the case key and the second is payload array. I decided not to expose that through typings but I might reconsider that in the future. You **cannot** use it for redux actions, however you can **safely use it for redux state**.
 
-### Api
+### API
 
 Use `Union` to define shape
 
@@ -256,11 +256,11 @@ const Maybe = Union(t => ({ Nothing: of(), Just: of(t) }));
 type MaybeVal<T> = GenericValType<T, typeof Maybe.T>;
 ```
 
-And that is the whole api.
+And that is the whole API.
 
 ### Technically breaking changes going 1.2 -> 2.0
 
-There should be no breaking changes but I removed some exported types to reduce api surface.
+There should be no breaking changes but I removed some exported types to reduce API surface.
 
 ```typescript
 export {
@@ -289,7 +289,7 @@ type NewShape = [string, payload[any]];
 const newShape = ['CreditCard', ['Visa', '1111-566-...']];
 ```
 
-That allows to reduce allocations and it opens up future api extensibility. Such as:
+That allows to reduce allocations and it opens up future API extensibility. Such as:
 
 ```typescript
 // namespaces to avoid collisions.
