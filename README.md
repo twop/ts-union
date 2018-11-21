@@ -260,17 +260,7 @@ That's the whole API.
 
 ### Breaking changes from 1.2 -> 2.0
 
-There should be no breaking changes, but I removed some of the exported types to reduce the API surface.
-
-```typescript
-export {
-  Union, // the main entry point function
-  of, // helper to define cases payload
-  GenericValType, // helper type for working with generic unions
-  UnionObj, // Non-generic union object: Constructors, match, if
-  GenericUnionObj // generic version of the union object
-};
-```
+There should be no breaking changes, but I completely rewrote the types that drive public api. So if you for some reasons used them pls look into d.ts file for a replacement.
 
 ### Breaking changes from 1.1 -> 1.2
 
