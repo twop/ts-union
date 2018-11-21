@@ -151,7 +151,7 @@ export const Maybe = {...TempMaybe, map, bind};
 
 ### Type of resulted objects
 
-Atm types of union values are opaque. That allows me to experiment with different underlying data structures.
+Types of union values are opaque. That makes it possible to experiment with different underlying data structures.
 
 ```typescript
 type CashType = typeof cash;
@@ -168,18 +168,18 @@ type PaymentMethodType = typeof PaymentMethod.T;
 
 ## API and implementation details
 
-If you will try to log a union value you will see just an array.
+If you to log a union value all you see is an array.
 
 ```typescript
 console.log(PaymentMethod.Check(15566909));
 // ['Check', [15566909]]
 ```
 
-All union values are arrays. The first element is the case key and the second is payload array. I decided not to expose that through typings but I might reconsider that in the future. You **cannot** use it for redux actions, however you can **safely use it for redux state**.
+This is because union values are arrays under the hood. The first element is the key and the second is payload array. I decided not to expose that through typings but I might reconsider that in the future. You **cannot** use it for redux actions, however you can **safely use it for redux state**.
 
 ### API
 
-Use `Union` to define shape
+Use `Union` constructor to define the type
 
 ```typescript
 import { Union, of } from 'ts-union';
@@ -256,23 +256,23 @@ const Maybe = Union(t => ({ Nothing: of(), Just: of(t) }));
 type MaybeVal<T> = GenericValType<T, typeof Maybe.T>;
 ```
 
-And that is the whole API.
+That's the whole API.
 
-### Technically breaking changes going 1.2 -> 2.0
+### Breaking changes from 1.2 -> 2.0
 
-There should be no breaking changes but I removed some exported types to reduce API surface.
+There should be no breaking changes, but I removed some of the exported types to reduce the API surface.
 
 ```typescript
 export {
   Union, // the main entry point function
   of, // helper to define cases payload
   GenericValType, // helper type for working with generic unions
-  UnionObj, // Non generic union object: Constructors, match, if
-  GenericUnionObj // generic version of it
+  UnionObj, // Non-generic union object: Constructors, match, if
+  GenericUnionObj // generic version of the union object
 };
 ```
 
-### Breaking changes going 1.1 -> 1.2
+### Breaking changes from 1.1 -> 1.2
 
 - `t` function to define shapes is renamed to `of`.
 - There is a different underlying data structure. So if you persisted the values somewhere it wouldn't be compatible with the new version.
@@ -289,7 +289,7 @@ type NewShape = [string, payload[any]];
 const newShape = ['CreditCard', ['Visa', '1111-566-...']];
 ```
 
-That allows to reduce allocations and it opens up future API extensibility. Such as:
+That reduces allocations and opens up possibility for future API extensions. Such as:
 
 ```typescript
 // namespaces to avoid collisions.
