@@ -168,7 +168,7 @@ type PaymentMethodType = typeof PaymentMethod.T;
 
 ## API and implementation details
 
-If you to log a union value all you see is an array.
+If you log a union value to console all you see is an array.
 
 ```typescript
 console.log(PaymentMethod.Check(15566909));
