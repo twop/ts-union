@@ -1,10 +1,6 @@
 node_modules
-build
-test
+pkg
 src/**.js
 
 coverage
-.nyc_output
 *.log
-
-yarn.lock

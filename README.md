@@ -1,6 +1,6 @@
 # ts-union
 
-Tiny library (<1Kb unminified & unzipped) for algebraic sum types in typescript. Inspired by [unionize](https://github.com/pelotom/unionize) and [F# discriminated-unions](https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/discriminated-unions) (and other ML languages)
+A tiny library for algebraic sum types in typescript. Inspired by [unionize](https://github.com/pelotom/unionize) and [F# discriminated-unions](https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/discriminated-unions) (and other ML languages)
 
 ## Installation
 
@@ -18,9 +18,9 @@ NOTE: uses features from typescript 3.0 (such as `unknown` type)
 import { Union, of } from 'ts-union';
 
 const PaymentMethod = Union({
-  Cash: of<void>(), // or just of()
   Check: of<CheckNumber>(),
-  CreditCard: of<CardType, CardNumber>()
+  CreditCard: of<CardType, CardNumber>(),
+  Cash: of(null) // means that this variant has no payload
 });
 
 type CheckNumber = number;
@@ -28,12 +28,17 @@ type CardType = 'MasterCard' | 'Visa';
 type CardNumber = string;
 ```
 
-### Construct
+### Construct a union value
 
 ```typescript
-const cash = PaymentMethod.Cash();
+// Check is a function that accepts a check number
 const check = PaymentMethod.Check(15566909);
+
+// CreditCard is a function that accepts two arguments (CardType, CardNumber)
 const card = PaymentMethod.CreditCard('Visa', '1111-566-...');
+
+// Cash is just a value
+const cash = PaymentMethod.Cash;
 
 // or destructure it to simplify construction :)
 const { Cash, Check, CreditCard } = PaymentMethod;
@@ -68,7 +73,7 @@ const str = PaymentMethod.if.Cash(cash, () => 'yep'); // "yep"
 // typeof str === string | undefined
 ```
 
-You can provide else case as well, then 'undefined' type will be removed from the result.
+You can provide else case as well, in that case 'undefined' type will be removed from the result.
 
 ```typescript
 // typeof str === string
@@ -79,13 +84,49 @@ const str = PaymentMethod.if.Check(
 ); // str === 'not check'
 ```
 
+### Two ways to specify variants with no payload
+
+You can define variants with no payload with either `of(null)` or `of<void>()`;
+
+```ts
+const Nope = Union({
+  Old: of<void>(), // only option in 2.0
+  New: of(null) // new syntax in 2.1
+});
+
+// Note that New is a value not a function
+const nope = Nope.New;
+
+// here Old is a function
+const oldNope = Nope.Old();
+```
+
+Note that `Old` will always allocate a new value while `New` _is_ a value (thus more efficient).
+
+For generics the syntax differs a little bit:
+
+```ts
+// generic version
+const Option = Union(t => ({
+  None: of(null),
+  Some: of(t)
+}));
+
+// we need to provide a type for the Option to "remember" it.
+const maybeNumber = Option.None<number>();
+```
+
+Even though `None` is a function, but it _always_ returns the same value. It is just a syntax to "remember" the type it was constructed with;
+
+Speaking of generics...
+
 ### Generic version
 
 ```typescript
 // Pass a function that accepts a type token and returns a record
 const Maybe = Union(val => ({
-  Nothing: of<void>(),
-  Just: of(val) // Just has type Of<[Generic]>
+  Nothing: of(null), // type is Of<[Unit]>
+  Just: of(val) // type is Of<[Generic]>
 }));
 ```
 
@@ -95,7 +136,7 @@ This feature can be handy to model network requests (like in `Redux`):
 
 ```typescript
 const ReqResult = Union(data => ({
-  Pending: of<void>(),
+  Pending: of(null),
   Ok: of(data),
   Err: of<string | Error>()
 }));
@@ -168,14 +209,16 @@ type PaymentMethodType = typeof PaymentMethod.T;
 
 ## API and implementation details
 
-If you log a union value to console all you see is an array.
+If you log a union value to console you will see a plain object.
 
 ```typescript
 console.log(PaymentMethod.Check(15566909));
-// ['Check', [15566909]]
+// {k:'Check', p:[15566909]}
 ```
 
-This is because union values are arrays under the hood. The first element is the key and the second is payload array. I decided not to expose that through typings but I might reconsider that in the future. You **cannot** use it for redux actions, however you can **safely use it for redux state**.
+This is because union values are objects under the hood. The `k` element is the key and the `p` is the payload array. I decided not to expose that through typings but I might reconsider that in the future. You **cannot** use it for redux actions, however you can **safely use it for redux state**.
+
+Note that in version 2.0 it was a tuple. But benchmarks [TODO link] showed that object are more efficient (I have no idea why arrays cannot be jitted efficiently).
 
 ### API
 
@@ -186,6 +229,7 @@ import { Union, of } from 'ts-union';
 
 const U = Union({
   Simple: of(), // or of<void>(). no payload.
+  SuperSimple: of(null), // static union value with no payload
   One: of<string>(), // one argument
   Const: of(3), // one constant argument that is baked in
   Two: of<string, number>(), // two arguments
@@ -194,15 +238,24 @@ const U = Union({
 
 // generic version
 const Option = Union(t => ({
-  None: of<void>(),
+  None: of(null),
   Some: of(t) // Note: t is a value of the special type Generic
 }));
+
+// for static variant values you still have to provide a type
+// because it needs to "remember" the type.
+// Thus a function call, but it will always return the same object
+const opt = Option.None<string>();
+
+// But here type is inferred as number
+const opt2 = Option.Some(5);
 ```
 
 Let's take a closer look at `of` function
 
 ```typescript
-interface Types {
+export interface Types {
+  (unit: null): Of<[Unit]>;
   <T = void>(): Of<[T]>;
   (g: Generic): Of<[Generic]>;
   <T>(val: T): Const<T>;
@@ -257,6 +310,25 @@ type MaybeVal<T> = GenericValType<T, typeof Maybe.T>;
 ```
 
 That's the whole API.
+
+### Benchmarks
+
+You can find a more details here [TODO link]. Both `unionize` and `ts-union` are 1.2x -2x (ish?) times slower than handwritten discriminated unions: aka `{tag: 'num', n: number} | {tag: 'str', s: string}`. But the good news is that you don't have to write the boilerplate yourself, _and_ it is still blazing fast!
+
+### Breaking changes from 2.0.1 -> 2.1
+
+There should be no public breaking changes, but I changed the underlying data structure (again!?) to be `{k: string, p: any[]}`, where k is a case name like `"CreditCard"` and p is a payload array. So if you stored the values somewhere (localStorage?) then please migrate accordingly.
+
+The motivation for it that I finally tried to benchmark the performance of the library. Arrays were 1.5x - 2x slower than plain objects :(
+
+```ts
+const oldShape = ['CreditCard', ['Visa', '1111-566-...']];
+
+// and yes this is faster. Blame V8.
+const newShape = { k: 'CreditCard', p: ['Visa', '1111-566-...'] };
+```
+
+Last but not least: no CJS only ESM for distribution.
 
 ### Breaking changes from 1.2 -> 2.0
 

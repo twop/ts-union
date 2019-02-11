@@ -6,6 +6,10 @@ export interface Generic {
   opaque: 'Generic is a token type that is going to be replaced with a real type';
 }
 
+export interface Unit {
+  opaque: 'opaque token for empty payload type';
+}
+
 export type Case<T> = Of<T> | Const<T>;
 
 export interface RecordDict {
@@ -29,6 +33,7 @@ export interface Of<T> {
 }
 
 export interface Types {
+  (unit: null): Of<[Unit]>;
   <T = void>(): Of<[T]>;
   (g: Generic): Of<[Generic]>;
   <T>(val: T): Const<T>;
@@ -76,6 +81,8 @@ export type CasesG<Record, Result, P> = {
 export type CreatorFunc<K, UVal> = K extends Of<infer A>
   ? A extends [void]
     ? () => UVal
+    : A extends [Unit]
+    ? UVal
     : A extends any[]
     ? (...p: A) => UVal
     : never
@@ -85,6 +92,8 @@ export type CreatorFunc<K, UVal> = K extends Of<infer A>
 
 export type CreatorFuncG<K, Rec> = K extends Of<infer A>
   ? A extends [void]
+    ? <P = never>() => UnionValG<P, Rec>
+    : A extends [Unit]
     ? <P = never>() => UnionValG<P, Rec>
     : A extends [Generic]
     ? <P>(val: P) => UnionValG<P, Rec>
@@ -99,6 +108,8 @@ export type CreatorFuncG<K, Rec> = K extends Of<infer A>
 export type MatchCaseFunc<K, Res> = K extends Of<infer A>
   ? A extends [void]
     ? () => Res
+    : A extends [Unit]
+    ? () => Res
     : A extends any[]
     ? (...p: A) => Res
     : never
@@ -108,6 +119,8 @@ export type MatchCaseFunc<K, Res> = K extends Of<infer A>
 
 export type MatchCaseFuncG<K, Res, P> = K extends Of<infer A>
   ? A extends [void]
+    ? () => Res
+    : A extends [Unit]
     ? () => Res
     : A extends [Generic]
     ? (val: P) => Res
@@ -155,6 +168,11 @@ export type UnpackFunc<K, Rec> = K extends Of<infer A>
         <R>(val: UnionVal<Rec>, f: () => R): R | undefined;
         <R>(val: UnionVal<Rec>, f: () => R, els: (v: UnionVal<Rec>) => R): R;
       }
+    : A extends [Unit]
+    ? {
+        <R>(val: UnionVal<Rec>, f: () => R): R | undefined;
+        <R>(val: UnionVal<Rec>, f: () => R, els: (v: UnionVal<Rec>) => R): R;
+      }
     : A extends any[]
     ? {
         <R>(val: UnionVal<Rec>, f: (...p: A) => R): R | undefined;
@@ -174,6 +192,15 @@ export type UnpackFunc<K, Rec> = K extends Of<infer A>
 
 export type UnpackFuncG<K, Rec> = K extends Of<infer A>
   ? A extends [void]
+    ? {
+        <R, P>(val: UnionValG<P, Rec>, f: () => R): R | undefined;
+        <R, P>(
+          val: UnionValG<P, Rec>,
+          f: () => R,
+          els: (v: UnionValG<P, Rec>) => R
+        ): R;
+      }
+    : A extends [Unit]
     ? {
         <R, P>(val: UnionValG<P, Rec>, f: () => R): R | undefined;
         <R, P>(
@@ -247,7 +274,7 @@ export const Union: UnionFunc = <R extends RequiredRecordType>(
   // tslint:disable-next-line:prefer-object-spread
   return Object.assign(
     { if: createUnpack(record), match },
-    createContructors(record)
+    createConstructors(record, typeof recOrFunc === 'function')
   ) as any;
 };
 
@@ -256,36 +283,50 @@ const evalMatch = <Record extends RecordDict>(
   cases: MatchCases<Record, unknown>
 ): any => {
   // first elem is always the key
-  const handler = cases[val[0]] as any;
-  return handler ? handler(...val[1]) : cases.default && cases.default(val);
+  const handler = cases[getKey(val)] as any;
+  return handler
+    ? handler(...getParams(val))
+    : cases.default && cases.default(val);
 };
 
+// const f = (n: number, n2: number) => n + n2;
+
+// const f2 = f.call(undefined, [1]);
 const match: MatchFunc<unknown> = (a: any, b?: any) =>
   b ? evalMatch(a, b) : (val: any) => evalMatch(val, a);
 
-const createContructors = <Record extends RecordDict>(
-  rec: Record
+const createConstructors = <Record extends RecordDict>(
+  rec: Record,
+  isGeneric: boolean
 ): Constructors<Record> => {
   const result: Partial<Constructors<Record>> = {};
-  // tslint:disable-next-line:forin
+  // tslint:disable-next-line: forin
   for (const key in rec) {
-    result[key] = createCtor(key, rec);
+    result[key] = createCtor(key, rec, isGeneric);
   }
   return result as Constructors<Record>;
 };
 
 const createCtor = <K extends keyof Record, Record extends RecordDict>(
   key: K,
-  rec: Record
+  rec: Record,
+  isGeneric: boolean
 ): CreatorFunc<Record[K], UnionVal<Record>> => {
   const val: Case<unknown> = rec[key];
+
+  // it means that it was constructed with of(null)
+  if (val === null) {
+    const frozenVal = Object.freeze(makeVal(key, [])) as any;
+    return isGeneric ? () => frozenVal : frozenVal;
+  }
+
   // tslint:disable-next-line:no-if-statement
   if (val !== undefined) {
-    const res: ReadonlyArray<any> = [key, [val]];
+    const res: ReadonlyArray<any> = makeVal(key, [val]) as any;
     return ((() => res) as any) as any;
   }
 
-  return ((...args: any[]) => [key, args]) as any;
+  return ((...args: any[]) => makeVal(key, args)) as any;
 };
 
 const createUnpack = <Record extends RecordDict>(
@@ -303,4 +344,8 @@ const createUnpackFunc = <K extends keyof Record, Record extends RecordDict>(
   key: K
 ): UnpackFunc<Record[K], Record> =>
   ((val: any, f: (...args: any[]) => any, els?: (v: any) => any) =>
-    val[0] === key ? f(...val[1]) : els && els(val)) as any;
+    getKey(val) === key ? f(...getParams(val)) : els && els(val)) as any;
+
+const makeVal = (k: any, p: any) => ({ k, p });
+const getKey = (val: any) => val.k;
+const getParams = (val: any) => val.p;
