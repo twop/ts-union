@@ -39,13 +39,13 @@ There are 4 benchmark categories:
 - Creation of a union value
 - Match union value to produce a string via inline object
 - Match union value to produce a string via cached functions
-- Map `Num` union value to produce a 'Str' value out of it
+- Map `Num` union value to produce a `Str` value out of it
 
 If you just want to see the numbers then scroll to the bottom :)
 
 ## Creation
 
-All of them need to provide constructors from a number. The idea is that we preallocate an array for all of them (to avoid any GC or array resizing), and then give an equal probability call one of constructors.
+All of them need to provide constructors from a number. The idea is that we preallocate an array for all of them (to avoid any GC or array resizing), and then with equal probability invoke one of the constructors.
 
 Note currently the number of elements is 2000000.
 
@@ -170,7 +170,7 @@ const toStr = U.match({
 
 ## Mapping
 
-The goal of this benchmark is to identify a `Num` case and convert it to 'Str' case by simply calling `(n:number)=>n.toString()`
+The goal of this benchmark is to identify a `Num` case and convert it to `Str` case by simply calling `(n:number)=>n.toString()`
 
 ### baseline
 
@@ -235,6 +235,6 @@ Mapping
 
 ## Conclusion
 
-Nothing beats handwritten switch case :) But both `unionize` and `ts-union` provided comparable performance with baseline when matching function is cached.
+Nothing beats handwritten switch case :) But both `unionize` and `ts-union` provided a comparable performance with baseline when a matching function is cached.
 
-Note that I got different results all the time even with 50 attempts. So think about these numbers as a very rough approximation. In the real world usecases the functions might not be even considered as "hot". Thus, in my opinion the performance of these libraries is "good enough" to use them without thinking too much about it.
+Note that I get different results all the time even with 50 attempts. So think about these numbers as a very rough approximation. In the real world usecases these functions might not even be considered as "hot". Thus, in my opinion the performance of these libraries is "good enough" to use them without thinking too much about it.

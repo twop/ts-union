@@ -101,7 +101,7 @@ const nope = Nope.New;
 const oldNope = Nope.Old();
 ```
 
-Note that `Old` will always allocate a new value while `New` _is_ a value (thus more efficient).
+Note that `Old` will always allocate a new value while `New` **is** a value (thus more efficient).
 
 For generics the syntax differs a little bit:
 
@@ -116,7 +116,7 @@ const Option = Union(t => ({
 const maybeNumber = Option.None<number>();
 ```
 
-Even though `None` is a function, but it _always_ returns the same value. It is just a syntax to "remember" the type it was constructed with;
+Even though `None` is a function, but it **always** returns the same value. It is just a syntax to "remember" the type it was constructed with;
 
 Speaking of generics...
 
@@ -218,7 +218,7 @@ console.log(PaymentMethod.Check(15566909));
 
 This is because union values are objects under the hood. The `k` element is the key and the `p` is the payload array. I decided not to expose that through typings but I might reconsider that in the future. You **cannot** use it for redux actions, however you can **safely use it for redux state**.
 
-Note that in version 2.0 it was a tuple. But benchmarks [TODO link] showed that object are more efficient (I have no idea why arrays cannot be jitted efficiently).
+Note that in version 2.0 it was a tuple. But [benchmarks](https://github.com/twop/ts-union/tree/master/benchmarks) showed that object are more efficient (I have no idea why arrays cannot be jitted efficiently).
 
 ### API
 
@@ -313,7 +313,7 @@ That's the whole API.
 
 ### Benchmarks
 
-You can find a more details here [TODO link]. Both `unionize` and `ts-union` are 1.2x -2x (ish?) times slower than handwritten discriminated unions: aka `{tag: 'num', n: number} | {tag: 'str', s: string}`. But the good news is that you don't have to write the boilerplate yourself, _and_ it is still blazing fast!
+You can find a more details [here](https://github.com/twop/ts-union/tree/master/benchmarks). Both `unionize` and `ts-union` are 1.2x -2x (ish?) times slower than handwritten discriminated unions: aka `{tag: 'num', n: number} | {tag: 'str', s: string}`. But the good news is that you don't have to write the boilerplate yourself, _and_ it is still blazing fast!
 
 ### Breaking changes from 2.0.1 -> 2.1
 
