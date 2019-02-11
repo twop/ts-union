@@ -328,8 +328,6 @@ const oldShape = ['CreditCard', ['Visa', '1111-566-...']];
 const newShape = { k: 'CreditCard', p: ['Visa', '1111-566-...'] };
 ```
 
-Last but not least: no CJS only ESM for distribution.
-
 ### Breaking changes from 1.2 -> 2.0
 
 There should be no breaking changes, but I completely rewrote the types that drive public api. So if you for some reasons used them pls look into d.ts file for a replacement.
