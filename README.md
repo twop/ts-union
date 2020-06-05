@@ -8,7 +8,7 @@ A tiny library for algebraic sum types in typescript. Inspired by [unionize](htt
 npm add ts-union
 ```
 
-NOTE: uses features from typescript 3.0 (such as `unknown` type)
+NOTE: Distrubuted as modern javascript (es2018) library.
 
 ## Usage
 
@@ -20,7 +20,7 @@ import { Union, of } from 'ts-union';
 const PaymentMethod = Union({
   Check: of<CheckNumber>(),
   CreditCard: of<CardType, CardNumber>(),
-  Cash: of(null) // means that this variant has no payload
+  Cash: of(null), // means that this variant has no payload
 });
 
 type CheckNumber = number;
@@ -50,8 +50,8 @@ const anotherCheck = Check(566541123);
 ```typescript
 const str = PaymentMethod.match(cash, {
   Cash: () => 'cash',
-  Check: n => `check num: ${n.toString()}`,
-  CreditCard: (type, n) => `${type} ${n}`
+  Check: (n) => `check num: ${n.toString()}`,
+  CreditCard: (type, n) => `${type} ${n}`,
 });
 ```
 
@@ -60,7 +60,7 @@ Also supports deferred (curried) matching and `default` case.
 ```typescript
 const toStr = PaymentMethod.match({
   Cash: () => 'cash',
-  default: _v => 'not cash' // _v is the union obj
+  default: (_v) => 'not cash', // _v is the union obj
 });
 
 const str = toStr(card); // "not cash"
@@ -79,8 +79,8 @@ You can provide else case as well, in that case 'undefined' type will be removed
 // typeof str === string
 const str = PaymentMethod.if.Check(
   cash,
-  n => `check num: ${n.toString()}`,
-  _v => 'not check' // _v is the union obj that is passed in
+  (n) => `check num: ${n.toString()}`,
+  (_v) => 'not check' // _v is the union obj that is passed in
 ); // str === 'not check'
 ```
 
@@ -91,7 +91,7 @@ You can define variants with no payload with either `of(null)` or `of<void>()`;
 ```ts
 const Nope = Union({
   Old: of<void>(), // only option in 2.0
-  New: of(null) // new syntax in 2.1
+  New: of(null), // new syntax in 2.1
 });
 
 // Note that New is a value not a function
@@ -107,9 +107,9 @@ For generics the syntax differs a little bit:
 
 ```ts
 // generic version
-const Option = Union(t => ({
+const Option = Union((t) => ({
   None: of(null),
-  Some: of(t)
+  Some: of(t),
 }));
 
 // we need to provide a type for the Option to "remember" it.
@@ -124,9 +124,9 @@ Speaking of generics...
 
 ```typescript
 // Pass a function that accepts a type token and returns a record
-const Maybe = Union(val => ({
+const Maybe = Union((val) => ({
   Nothing: of(null), // type is Of<[Unit]>
-  Just: of(val) // type is Of<[Generic]>
+  Just: of(val), // type is Of<[Generic]>
 }));
 ```
 
@@ -135,10 +135,10 @@ Note that `val` is a **value** of the special type `Generic` that will be substi
 This feature can be handy to model network requests (like in `Redux`):
 
 ```typescript
-const ReqResult = Union(data => ({
+const ReqResult = Union((data) => ({
   Pending: of(null),
   Ok: of(data),
-  Err: of<string | Error>()
+  Err: of<string | Error>(),
 }));
 
 // res is inferred as UnionValG<string, ...>
@@ -146,9 +146,9 @@ const res = ReqResult.Ok('this is awesome!');
 
 const status = ReqResult.match(res, {
   Pending: () => 'Thinking...',
-  Err: err =>
+  Err: (err) =>
     typeof err === 'string' ? `Oops ${err}` : `Exception ${err.message}`,
-  Ok: str => `Ok, ${str}`
+  Ok: (str) => `Ok, ${str}`,
 }); // 'Ok, this is awesome!'
 ```
 
@@ -162,17 +162,21 @@ type MaybeVal<T> = GenericValType<T, typeof Maybe.T>;
 
 const map = <A, B>(val: MaybeVal<A>, f: (a: A) => B) =>
   Maybe.match(val, {
-    Just: v => Just(f(v)),
-    Nothing: () => Nothing<B>() // note that we have to explicitly provide B type here
+    Just: (v) => Just(f(v)),
+    Nothing: () => Nothing<B>(), // note that we have to explicitly provide B type here
   });
 
 const bind = <A, B>(val: MaybeVal<A>, f: (a: A) => MaybeVal<B>) =>
-  Maybe.if.Just(val, a => f(a), n => (n as unknown) as MaybeVal<B>);
+  Maybe.if.Just(
+    val,
+    (a) => f(a),
+    (n) => (n as unknown) as MaybeVal<B>
+  );
 
-map(Just('a'), s => s.length); // -> Just(1)
-bind(Just(100), n => Just(n.toString())); // -> Just('100')
+map(Just('a'), (s) => s.length); // -> Just(1)
+bind(Just(100), (n) => Just(n.toString())); // -> Just('100')
 
-map(Nothing<string>(), s => s.length); // -> Nothing
+map(Nothing<string>(), (s) => s.length); // -> Nothing
 ```
 
 And if you want to **extend** `Maybe` with these functions:
@@ -233,13 +237,13 @@ const U = Union({
   One: of<string>(), // one argument
   Const: of(3), // one constant argument that is baked in
   Two: of<string, number>(), // two arguments
-  Three: of<string, number, boolean>() // three
+  Three: of<string, number, boolean>(), // three
 });
 
 // generic version
-const Option = Union(t => ({
+const Option = Union((t) => ({
   None: of(null),
-  Some: of(t) // Note: t is a value of the special type Generic
+  Some: of(t), // Note: t is a value of the special type Generic
 }));
 
 // for static variant values you still have to provide a type
@@ -305,7 +309,7 @@ type GenericValType<Type, Val> = Val extends UnionValG<infer _Type, infer Rec>
 
 // Example
 import { Union, of, GenericValType } from 'ts-union';
-const Maybe = Union(t => ({ Nothing: of(), Just: of(t) }));
+const Maybe = Union((t) => ({ Nothing: of(), Just: of(t) }));
 type MaybeVal<T> = GenericValType<T, typeof Maybe.T>;
 ```
 
@@ -314,6 +318,71 @@ That's the whole API.
 ### Benchmarks
 
 You can find a more details [here](https://github.com/twop/ts-union/tree/master/benchmarks). Both `unionize` and `ts-union` are 1.2x -2x (ish?) times slower than handwritten discriminated unions: aka `{tag: 'num', n: number} | {tag: 'str', s: string}`. But the good news is that you don't have to write the boilerplate yourself, _and_ it is still blazing fast!
+
+### Breaking changes from 2.1.1 -> 2.2.0
+
+There should be no public breaking changes, but I changed the underlying data structure (again!? and again!?) to be `{k: string, p0: any, p1: any, p2: any, a: number}`, where k is a case name like `"CreditCard"`, `p0`-`p2` passed in parameters and `a` is how many parameters were passed in. So if you stored the values somewhere (localStorage?) then please migrate accordingly.
+
+```ts
+const oldShape = { k: 'CreditCard', p: ['Visa', '1111-566-...'] };
+const newShape = {
+  k: 'CreditCard',
+  p0: 'Visa',
+  p1: '1111-566-...',
+  p2: undefined,
+  a: 2,
+};
+```
+
+motivation for this is potential perf wins avoiding dealing with `(...args) => {...}`. The current approach should be more friendly for JIT compilers (arguments and ...args are hard to optimize). That kinda aligns with my local perf results:
+
+old shape
+
+```
+Creation
+    baseline: 8.39 ms
+    unionize: 17.32 ms
+    ts-union: 11.10 ms
+
+Matching with inline object
+    baseline: 1.97 ms
+    unionize: 5.96 ms
+    ts-union: 7.32 ms
+
+Matching with preallocated function
+    baseline: 2.20 ms
+    unionize: 4.21 ms
+    ts-union: 4.52 ms
+
+Mapping
+    baseline: 2.02 ms
+    unionize: 2.98 ms
+    ts-union: 1.69 ms
+```
+
+new shape
+
+```
+Creation
+    baseline: 6.90 ms
+    unionize: 15.62 ms
+    ts-union: 6.38 ms
+
+Matching with inline object
+    baseline: 2.33 ms
+    unionize: 6.26 ms
+    ts-union: 5.19 ms
+
+Matching with preallocated function
+    baseline: 1.67 ms
+    unionize: 4.44 ms
+    ts-union: 3.88 ms
+
+Mapping
+    baseline: 1.96 ms
+    unionize: 2.93 ms
+    ts-union: 1.39 ms
+```
 
 ### Breaking changes from 2.0.1 -> 2.1
 

@@ -9,9 +9,10 @@ const U = Union({
   One: of<string>(),
   Const: of(3),
   Two: of<string, number>(),
-  Three: of<string, number, boolean>()
+  Three: of<string, number, boolean>(),
 });
 
+import {} from 'jest';
 const { SuperSimple, Simple, One, Two, Three, Const } = U;
 
 test('unpacks simple', () => {
@@ -20,28 +21,52 @@ test('unpacks simple', () => {
 
   expect(U.if.Simple(s, () => 4)).toBe(4);
   expect(U.if.Simple(c, () => 4)).toBe(undefined);
-  expect(U.if.Simple(c, () => 4, () => 1)).toBe(1);
+  expect(
+    U.if.Simple(
+      c,
+      () => 4,
+      () => 1
+    )
+  ).toBe(1);
 });
 
 test('unpacks const', () => {
   const si = Simple();
   const c = Const();
-  expect(U.if.Const(c, n => n)).toBe(3);
-  expect(U.if.Const(si, n => n, () => 1)).toBe(1);
-  expect(U.if.Const(si, n => n)).toBe(undefined);
+  expect(U.if.Const(c, (n) => n)).toBe(3);
+  expect(
+    U.if.Const(
+      si,
+      (n) => n,
+      () => 1
+    )
+  ).toBe(1);
+  expect(U.if.Const(si, (n) => n)).toBe(undefined);
 });
 
 test('else case accepts the original object', () => {
   const simple = Simple();
-  expect(U.if.Const(simple, _ => Simple(), v => v)).toBe(simple);
+  expect(
+    U.if.Const(
+      simple,
+      (_) => Simple(),
+      (v) => v
+    )
+  ).toBe(simple);
 });
 
 test('unpacks one arg', () => {
   const one = One('one');
   const c = Const();
-  expect(U.if.One(one, s => s)).toBe('one');
-  expect(U.if.One(c, s => s, _ => 'els')).toBe('els');
-  expect(U.if.One(c, s => s)).toBe(undefined);
+  expect(U.if.One(one, (s) => s)).toBe('one');
+  expect(
+    U.if.One(
+      c,
+      (s) => s,
+      (_) => 'els'
+    )
+  ).toBe('els');
+  expect(U.if.One(c, (s) => s)).toBe(undefined);
 });
 
 test('unpacks two args', () => {
@@ -71,7 +96,7 @@ test('switch simple case', () => {
   expect(
     U.match(Simple(), {
       Simple: () => 'simple',
-      default: throwErr
+      default: throwErr,
     })
   ).toBe('simple');
 });
@@ -79,8 +104,8 @@ test('switch simple case', () => {
 test('switch const case', () => {
   expect(
     U.match(Const(), {
-      Const: n => n,
-      default: throwErr
+      Const: (n) => n,
+      default: throwErr,
     })
   ).toBe(3);
 });
@@ -88,8 +113,8 @@ test('switch const case', () => {
 test('switch one case', () => {
   expect(
     U.match(One('one'), {
-      One: s => s,
-      default: throwErr
+      One: (s) => s,
+      default: throwErr,
     })
   ).toBe('one');
 });
@@ -98,7 +123,7 @@ test('switch two case', () => {
   expect(
     U.match(Two('two', 2), {
       Two: (s, n) => s + n.toString(),
-      default: throwErr
+      default: throwErr,
     })
   ).toBe('two2');
 });
@@ -107,7 +132,7 @@ test('switch three case', () => {
   expect(
     U.match(Three('three', 1, true), {
       Three: (s, n, b) => s + n.toString() + (b ? 'true' : 'false'),
-      default: throwErr
+      default: throwErr,
     })
   ).toBe('three1true');
 });
@@ -116,10 +141,10 @@ test('switch deferred eval', () => {
   const evalFunc = U.match({
     Simple: () => 'simple',
     SuperSimple: () => 'super simple',
-    Const: n => n.toString(),
-    One: s => s,
+    Const: (n) => n.toString(),
+    One: (s) => s,
     Three: (s, n, b) => s + n.toString() + (b ? 'true' : 'false'),
-    Two: (s, n) => s + n.toString()
+    Two: (s, n) => s + n.toString(),
   });
 
   expect(evalFunc(Simple())).toBe('simple');
@@ -138,7 +163,7 @@ test('switch default case', () => {
   const co = Const();
 
   const val = 'def';
-  const justDef = U.match({ default: _ => val });
+  const justDef = U.match({ default: (_) => val });
 
   expect(justDef(si)).toBe(val);
   expect(justDef(co)).toBe(val);
@@ -146,39 +171,39 @@ test('switch default case', () => {
   expect(justDef(two)).toBe(val);
   expect(justDef(three)).toBe(val);
 
-  expect(U.match(si, { default: _ => val })).toBe(val);
-  expect(U.match(co, { default: _ => val })).toBe(val);
-  expect(U.match(one, { default: _ => val })).toBe(val);
-  expect(U.match(two, { default: _ => val })).toBe(val);
-  expect(U.match(three, { default: _ => val })).toBe(val);
+  expect(U.match(si, { default: (_) => val })).toBe(val);
+  expect(U.match(co, { default: (_) => val })).toBe(val);
+  expect(U.match(one, { default: (_) => val })).toBe(val);
+  expect(U.match(two, { default: (_) => val })).toBe(val);
+  expect(U.match(three, { default: (_) => val })).toBe(val);
 });
 
-const Maybe = Union(a => ({
+const Maybe = Union((a) => ({
   Nothing: of(null),
-  Just: of(a)
+  Just: of(a),
 }));
 
 const { Nothing, Just } = Maybe;
 
 test('generic match', () => {
   const shouldBeTwo = Maybe.match(Just(1), {
-    Just: n => n + 1,
-    default: throwErr
+    Just: (n) => n + 1,
+    default: throwErr,
   });
 
   expect(shouldBeTwo).toBe(2);
 
   const numToStr = Maybe.match({
     Just: (n: number) => n.toString(),
-    Nothing: () => 'nothing'
+    Nothing: () => 'nothing',
   });
 
   expect(numToStr(Just(1))).toBe('1');
   expect(numToStr(Nothing<number>())).toBe('nothing');
 
   const strLen = Maybe.match<number, string>({
-    Just: s => s.length,
-    Nothing: () => -1
+    Just: (s) => s.length,
+    Nothing: () => -1,
   });
 
   expect(strLen(Just('a'))).toBe(1);
@@ -189,8 +214,8 @@ test('generic if', () => {
   const one = Just(1);
   const nothing = Nothing<number>();
 
-  expect(Maybe.if.Just(one, n => n + 1)).toBe(2);
-  expect(Maybe.if.Just(nothing, n => n)).toBe(undefined);
+  expect(Maybe.if.Just(one, (n) => n + 1)).toBe(2);
+  expect(Maybe.if.Just(nothing, (n) => n)).toBe(undefined);
   expect(Maybe.if.Nothing(nothing, () => 1)).toBe(1);
 });
 
@@ -198,18 +223,29 @@ test('if can write a generic func like map or bind', () => {
   type MaybeVal<T> = GenericValType<T, typeof Maybe.T>;
 
   const map = <A, B>(val: MaybeVal<A>, f: (a: A) => B) =>
-    Maybe.if.Just(val, v => Just(f(v)), n => (n as unknown) as MaybeVal<B>);
+    Maybe.if.Just(
+      val,
+      (v) => Just(f(v)),
+      (n) => (n as unknown) as MaybeVal<B>
+    );
 
-  const maybeOne = map(Just('a'), s => s.length);
+  const maybeOne = map(Just('a'), (s) => s.length);
 
-  expect(Maybe.if.Just(maybeOne, n => n + 1)).toBe(2);
+  expect(Maybe.if.Just(maybeOne, (n) => n + 1)).toBe(2);
 
   const bind = <A, B>(val: MaybeVal<A>, f: (a: A) => MaybeVal<B>) =>
-    Maybe.if.Just(val, a => f(a), _ => Nothing<B>());
+    Maybe.if.Just(
+      val,
+      (a) => f(a),
+      (_) => Nothing<B>()
+    );
 
-  expect(Maybe.if.Just(bind(Just(1), n => Just(n.toString())), s => s)).toBe(
-    '1'
-  );
+  expect(
+    Maybe.if.Just(
+      bind(Just(1), (n) => Just(n.toString())),
+      (s) => s
+    )
+  ).toBe('1');
 });
 
 // Used for Readme.md example
@@ -235,14 +271,14 @@ test('we can have boolean and union values for cases', () => {
     Bool: of<boolean>(),
     StrOrNum: of<string | number>(),
     Enum: of<'yes' | 'no'>(),
-    Void: of(null)
+    Void: of(null),
   });
 
   const toStr = T.match({
     Void: () => 'void',
-    Bool: b => (b === true ? 'true' : b === false ? 'false' : throwErr()),
-    Enum: s => s,
-    StrOrNum: sn => (typeof sn === 'number' ? sn.toString() : sn)
+    Bool: (b) => (b === true ? 'true' : b === false ? 'false' : throwErr()),
+    Enum: (s) => s,
+    StrOrNum: (sn) => (typeof sn === 'number' ? sn.toString() : sn),
   });
 
   expect(toStr(T.Void)).toBe('void');
@@ -253,14 +289,19 @@ test('we can have boolean and union values for cases', () => {
 
   expect(T.if.Void(T.Void, () => 'void')).toBe('void');
 
-  const G = Union(a => ({
+  const G = Union((a) => ({
     Val: of(a),
-    Nope: of<'nope' | 100500>()
+    Nope: of<'nope' | 100500>(),
   }));
 
   type Guess<A> = GenericValType<A, typeof G.T>;
 
-  const valOr = <A>(val: Guess<A>, def: A) => G.if.Val(val, v => v, () => def);
+  const valOr = <A>(val: Guess<A>, def: A) =>
+    G.if.Val(
+      val,
+      (v) => v,
+      () => def
+    );
 
   const strOrNumVal = 'v' as string | number;
 
@@ -273,10 +314,10 @@ test('we can have boolean and union values for cases', () => {
 });
 
 test('shorthand for declaring cases momoizes the value in generics', () => {
-  const G = Union(a => ({
+  const G = Union((a) => ({
     Val: of(a),
     Nope: of(null),
-    Void: of<void>()
+    Void: of<void>(),
   }));
 
   // not the same reference

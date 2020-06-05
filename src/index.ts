@@ -61,20 +61,20 @@ export type GenericValType<Type, Val> = Val extends UnionValG<
 
 // --------------------------------------------------------
 export type Constructors<Record> = {
-  [T in keyof Record]: CreatorFunc<Record[T], UnionVal<Record>>
+  [T in keyof Record]: CreatorFunc<Record[T], UnionVal<Record>>;
 };
 
 export type ConstructorsG<Record> = {
-  [K in keyof Record]: CreatorFuncG<Record[K], Record>
+  [K in keyof Record]: CreatorFuncG<Record[K], Record>;
 };
 
 // --------------------------------------------------------
 export type Cases<Record, Result> = {
-  [T in keyof Record]: MatchCaseFunc<Record[T], Result>
+  [T in keyof Record]: MatchCaseFunc<Record[T], Result>;
 };
 
 export type CasesG<Record, Result, P> = {
-  [K in keyof Record]: MatchCaseFuncG<Record[K], Result, P>
+  [K in keyof Record]: MatchCaseFuncG<Record[K], Result, P>;
 };
 
 // --------------------------------------------------------
@@ -133,16 +133,16 @@ export type MatchCaseFuncG<K, Res, P> = K extends Of<infer A>
 
 // --------------------------------------------------------
 export type MatchCases<Record, Result> =
-  | Cases<Record, Result> & ForbidDefault
-  | Partial<Cases<Record, Result>> & {
+  | (Cases<Record, Result> & ForbidDefault)
+  | (Partial<Cases<Record, Result>> & {
       default: (val: UnionVal<Record>) => Result;
-    };
+    });
 
 export type MatchCasesG<Rec, Result, P> =
-  | CasesG<Rec, Result, P> & ForbidDefault
-  | Partial<CasesG<Rec, Result, P>> & {
+  | (CasesG<Rec, Result, P> & ForbidDefault)
+  | (Partial<CasesG<Rec, Result, P>> & {
       default: (val: UnionValG<P, Rec>) => Result;
-    };
+    });
 
 // --------------------------------------------------------
 export interface MatchFunc<Record> {
@@ -284,14 +284,9 @@ const evalMatch = <Record extends RecordDict>(
 ): any => {
   // first elem is always the key
   const handler = cases[getKey(val)] as any;
-  return handler
-    ? handler(...getParams(val))
-    : cases.default && cases.default(val);
+  return handler ? invoke(val, handler) : cases.default && cases.default(val);
 };
 
-// const f = (n: number, n2: number) => n + n2;
-
-// const f2 = f.call(undefined, [1]);
 const match: MatchFunc<unknown> = (a: any, b?: any) =>
   b ? evalMatch(a, b) : (val: any) => evalMatch(val, a);
 
@@ -316,17 +311,19 @@ const createCtor = <K extends keyof Record, Record extends RecordDict>(
 
   // it means that it was constructed with of(null)
   if (val === null) {
-    const frozenVal = Object.freeze(makeVal(key, [])) as any;
+    const frozenVal = Object.freeze(
+      makeValue(key, undefined, undefined, undefined)
+    ) as any;
     return isGeneric ? () => frozenVal : frozenVal;
   }
 
   // tslint:disable-next-line:no-if-statement
   if (val !== undefined) {
-    const res: ReadonlyArray<any> = makeVal(key, [val]) as any;
+    const res = makeValue(key, val, undefined, undefined) as any;
     return ((() => res) as any) as any;
   }
 
-  return ((...args: any[]) => makeVal(key, args)) as any;
+  return ((p0: any, p1: any, p2: any) => makeValue(key, p0, p1, p2)) as any;
 };
 
 const createUnpack = <Record extends RecordDict>(
@@ -344,8 +341,39 @@ const createUnpackFunc = <K extends keyof Record, Record extends RecordDict>(
   key: K
 ): UnpackFunc<Record[K], Record> =>
   ((val: any, f: (...args: any[]) => any, els?: (v: any) => any) =>
-    getKey(val) === key ? f(...getParams(val)) : els && els(val)) as any;
+    getKey(val) === key ? invoke(val, f) : els && els(val)) as any;
 
-const makeVal = (k: any, p: any) => ({ k, p });
-const getKey = (val: any) => val.k;
-const getParams = (val: any) => val.p;
+const makeValue = (k: any, p0: any, p1: any, p2: any): Value => ({
+  k,
+  p0,
+  p1,
+  p2,
+  a: arity(p0, p1, p2),
+});
+
+type Value = {
+  k: string;
+  p0: any;
+  p1: any;
+  p2: any;
+  a: number;
+};
+
+const invoke = (val: Value, f: (...args: any[]) => any) => {
+  switch (val.a) {
+    case 0:
+      return f();
+    case 1:
+      return f(val.p0);
+    case 2:
+      return f(val.p0, val.p1);
+    case 3:
+      return f(val.p0, val.p1, val.p2);
+  }
+};
+
+const getKey = (val: Value) => val.k;
+// const getParams = (val: any) => val.p;
+
+const arity = (p0: any, p1: any, p2: any): number =>
+  p2 !== undefined ? 3 : p1 !== undefined ? 2 : p0 !== undefined ? 1 : 0;

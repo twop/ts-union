@@ -41,7 +41,7 @@ type Creation<T> = {
 
 type Matching<T> = {
   name: string;
-  toStr: (t: T) => string;
+  toNum: (t: T) => number;
 };
 
 type Mapping<T> = {
@@ -51,7 +51,7 @@ type Mapping<T> = {
 
 type Scenario<T> = [Creation<T>, Matching<T>, Matching<T>, Mapping<T>];
 
-const COUNT = 1000000;
+const COUNT = 500000;
 const log = console.log;
 
 const measure = (name: string, func: () => void) => {
@@ -59,8 +59,11 @@ const measure = (name: string, func: () => void) => {
 
   // let fastest = 100500;
 
+  const numOfRuns = 2;
+  const takeTop = 1;
+
   let runs: number[] = [];
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < numOfRuns; i++) {
     const hrstart = process.hrtime();
     func();
     const hrend = process.hrtime(hrstart);
@@ -75,14 +78,14 @@ const measure = (name: string, func: () => void) => {
   const result =
     runs
       .sort((a, b) => a - b)
-      .slice(0, 5)
+      .slice(0, takeTop)
       .reduce((s, v) => s + v, 0) / 5;
 
   log(`${' '.repeat(4)}${name}: ${result.toFixed(2)} ms`);
 };
 
 const run = (scenarios: Scenario<any>[]) => {
-  const results: string[] = Array.from({ length: COUNT }, () => '');
+  const results: number[] = Array.from({ length: COUNT }, () => 0);
   const numbers: number[] = Array.from({ length: COUNT }, () => Math.random());
 
   const values = scenarios.map(_ =>
@@ -107,7 +110,7 @@ const run = (scenarios: Scenario<any>[]) => {
   log(`\nMatching with inline object`);
   scenarios
     .map(s => s[1])
-    .forEach(({ name, toStr }, sIndex) =>
+    .forEach(({ name, toNum: toStr }, sIndex) =>
       measure(name, () => {
         for (let i = 0; i < COUNT; i++) {
           results[i] = toStr(values[sIndex][i]);
@@ -118,7 +121,7 @@ const run = (scenarios: Scenario<any>[]) => {
   log(`\nMatching with preallocated function`);
   scenarios
     .map(s => s[2])
-    .forEach(({ name, toStr }, sIndex) =>
+    .forEach(({ name, toNum: toStr }, sIndex) =>
       measure(name, () => {
         for (let i = 0; i < COUNT; i++) {
           results[i] = toStr(values[sIndex][i]);
@@ -152,21 +155,21 @@ const tsUnionScenario: Scenario<UT> = [
   },
   {
     name: tsUnionName,
-    toStr: v =>
+    toNum: v =>
       U.match(v, {
-        Num: n => n.toString(),
-        Str: s => s,
-        None: () => 'none',
-        Two: (n, b) => n.toString() + b
+        Num: n => n,
+        Str: s => s.length,
+        None: () => -100500,
+        Two: (n, b) => n + (b ? 1 : -1)
       })
   },
   {
     name: tsUnionName,
-    toStr: U.match({
-      Num: n => n.toString(),
-      Str: s => s,
-      None: () => 'none',
-      Two: (n, b) => n.toString() + b
+    toNum: U.match({
+      Num: n => n,
+      Str: s => s.length,
+      None: () => -1004,
+      Two: (n, b) => n + (b ? 1 : -1)
     })
   },
   {
@@ -192,21 +195,21 @@ const unionizeScenario: Scenario<UnT> = [
   },
   {
     name: unionizeName,
-    toStr: v =>
+    toNum: v =>
       Un.match(v, {
-        Num: n => n.toString(),
-        Str: s => s,
-        None: () => 'none',
-        Two: two => two.n.toString() + two.b
+        Num: n => n,
+        Str: s => s.length,
+        None: () => -100500,
+        Two: two => two.n + (two.b ? 1 : -1)
       })
   },
   {
     name: unionizeName,
-    toStr: Un.match({
-      Num: n => n.toString(),
-      Str: s => s,
-      None: () => 'none',
-      Two: ({ n, b }) => n.toString() + b
+    toNum: Un.match({
+      Num: n => n,
+      Str: s => s.length,
+      None: () => -100500,
+      Two: ({ n, b }) => n + (b ? 1 : -1)
     })
   },
   {
@@ -215,16 +218,16 @@ const unionizeScenario: Scenario<UnT> = [
   }
 ];
 
-const baselineToString = (v: UB): string => {
+const baselineToNumber = (v: UB): number => {
   switch (v.tag) {
     case 'None':
-      return 'none';
+      return -100500;
     case 'Num':
-      return v.n.toString();
+      return v.n;
     case 'Str':
-      return v.s;
+      return v.s.length;
     case 'Two':
-      return v.n.toString() + v.b;
+      return v.n + (v.b ? 1 : -1);
   }
 };
 
@@ -241,11 +244,11 @@ const baselineScenario: Scenario<UB> = [
   },
   {
     name: baselineName,
-    toStr: baselineToString
+    toNum: baselineToNumber
   },
   {
     name: baselineName,
-    toStr: baselineToString
+    toNum: baselineToNumber
   },
   {
     name: baselineName,
