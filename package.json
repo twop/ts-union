@@ -1,6 +1,6 @@
 {
   "name": "ts-union",
-  "version": "2.2.0",
+  "version": "2.1.1",
   "description": "ADT (sum type) in typescript inspired by ML language family",
   "repository": "https://github.com/twop/ts-union",
   "license": "MIT",
@@ -14,7 +14,8 @@
     "pika-pack": "pika build",
     "pika-publish": "pika publish",
     "typecheck": "tsc --noEmit",
-    "benchmark": "ts-node --project ./tsconfig.bench.json benchmarks/perfBenchmarks.ts"
+    "benchmark": "ts-node --project ./tsconfig.bench.json benchmarks/perfBenchmarks.ts",
+    "version": "npx @pika/pack"
   },
   "dependencies": {},
   "devDependencies": {
