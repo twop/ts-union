@@ -217,12 +217,12 @@ If you log a union value to console you will see a plain object.
 
 ```typescript
 console.log(PaymentMethod.Check(15566909));
-// {k:'Check', p:[15566909]}
+// {k:'Check', p0:15566909, p1: undefined, p2: undefined, a: 1}
 ```
 
-This is because union values are objects under the hood. The `k` element is the key and the `p` is the payload array. I decided not to expose that through typings but I might reconsider that in the future. You **cannot** use it for redux actions, however you can **safely use it for redux state**.
+This is because union values are objects under the hood. The `k` element is the key, `p0` - `p1` are passed in parameters and `a` is the number of parameters. I decided not to expose that through typings but I might reconsider that in the future. You **cannot** use it for redux actions, however you can **safely use it for redux state**.
 
-Note that in version 2.0 it was a tuple. But [benchmarks](https://github.com/twop/ts-union/tree/master/benchmarks) showed that object are more efficient (I have no idea why arrays cannot be jitted efficiently).
+Note that in version 2.0 it was a tuple. But [benchmarks](https://github.com/twop/ts-union/tree/master/benchmarks) showed that object are more efficient (I have no idea why arrays cannot be jitted efficiently). You can find more details below
 
 ### API
 
