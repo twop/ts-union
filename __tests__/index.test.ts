@@ -1,6 +1,12 @@
 // tslint:disable:no-expression-statement
 // tslint:disable-next-line:no-implicit-dependencies
-import { GenericValType, of, Union } from '../src/index';
+import {
+  GenericValType,
+  of,
+  Union,
+  matchTwo,
+  MatchCasesForTwo,
+} from '../src/index';
 
 // tslint:disable-next-line:no-object-literal-type-assertion
 const U = Union({
@@ -327,3 +333,62 @@ test('shorthand for declaring cases momoizes the value in generics', () => {
   // but 'of' memoizes it
   expect(G.Nope<boolean>()).toBe(G.Nope<boolean>());
 });
+
+const casesState = {
+  Loading: of(null),
+  Loaded: of<number>(),
+  Error: of<string>(),
+};
+
+const State = Union(casesState);
+
+const casesEv = {
+  ErrorHappened: of<string>(),
+  DataFetched: of<number>(),
+};
+
+type RecordB = typeof casesEv;
+type RecordA = typeof casesState;
+
+const Ev = Union(casesEv);
+
+const updateFunction = matchTwo(State, Ev, {
+  Loading: {
+    ErrorHappened: (_, err): typeof State.T => State.Error(err),
+    DataFetched: (_, data) => State.Loaded(data),
+  },
+
+  Loaded: {
+    DataFetched: (loaded, data) => {
+      var dddd: number
+      var llll: number
+      var dddd = data
+      var llll = loaded
+      return State.Loaded(data + loaded);
+    }
+  },
+
+  default: (prevState, ev) => prevState,
+});
+const rrr = updateFunction()
+
+const updateFunction2 = matchTwo(Ev, State, {
+  ErrorHappened: { Loading: ( err, _) => State.Error(err)},
+  DataFetched: {Loading: (data,) => State.Loaded(data)},
+  Loading: {
+  },
+
+  Loaded: {
+    DataFetched: (loaded, data) => {
+      var dddd: number
+      var llll: number
+      var dddd = data
+      var llll = loaded
+      return State.Loaded(data + loaded),
+    }
+  },
+
+  default: (prevState, ev) => prevState,
+});
+
+const newState = updateFunction(State.Loading, Ev.DataFetched(5));

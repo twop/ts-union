@@ -16,6 +16,11 @@ export interface RecordDict {
   readonly [key: string]: Case<unknown>;
 }
 
+export type SingleDataCase = Of<[Unit]> | Const<unknown> | Of<[unknown]>;
+export interface SingleDataRecordDict {
+  readonly [key: string]: SingleDataCase;
+}
+
 export interface ForbidDefault {
   default?: never;
 }
@@ -27,6 +32,7 @@ export type ForbidReservedProps = {
 } & ForbidDefault;
 
 export type RequiredRecordType = RecordDict & ForbidReservedProps;
+export type SingleDataRecordType = SingleDataRecordDict & ForbidReservedProps;
 
 export interface Of<T> {
   _opaque: T;
@@ -258,6 +264,86 @@ export type GenericUnionObj<Rec> = {
 
 // --------------------------------------------------------
 
+// ------------- Match Two -------------
+
+type TypeOfLeg<Leg> = Leg extends Of<infer A>
+  ? A extends [void] | [Unit]
+    ? void
+    : A extends [infer Value]
+    ? Value
+    : A extends Const<infer C>
+    ? C
+    : never
+  : never;
+
+export type MatchCaseFuncTwo<LegA, LegB, Res> = (
+  // a: 'a',
+  // b: 'b'
+  a: TypeOfLeg<LegA>,
+  b: TypeOfLeg<LegB>
+) => Res;
+
+//   K extends Of<infer A>
+//   ? A extends [void]
+//     ? () => Res
+//     : A extends [Unit]
+//     ? () => Res
+//     : A extends any[]
+//     ? (...p: A) => Res
+//     : never
+//   : K extends Const<infer C>
+//   ? (c: C) => Res
+//   : never;
+
+// export type CasesTwo<RecordA, RecordB, Result> = {
+//   [KA in keyof RecordA]: {
+//     [KB in keyof RecordB]: MatchCaseFuncTwo<RecordA[KA], RecordB[KB], Result>;
+//   };
+// };
+
+export type CasesTwo<RecordA, RecordB, Result> = {
+  [KA in keyof RecordA]?: {
+    [KB in keyof RecordB]?: MatchCaseFuncTwo<RecordA[KA], RecordB[KB], Result>;
+    // [KB in keyof RecordB]?: (a: RecordA[KA], b: RecordB[KB]) => Result;
+  };
+};
+
+type Test = CasesTwo<
+  { a: TypeOfLeg<Of<[Unit]>> },
+  { b: TypeOfLeg<Of<[string]>> },
+  number
+>;
+
+export type MatchCasesForTwo<RecordA, RecordB, Result> = CasesTwo<
+  RecordA,
+  RecordB,
+  Result
+> & {
+  default: (a: UnionVal<RecordA>, b: UnionVal<RecordB>) => Result;
+};
+
+type Exact<T extends { [key: string]: any }> = { [K in keyof T]: T[K] };
+
+export const matchTwo = <
+  A extends SingleDataRecordType,
+  B extends SingleDataRecordType,
+  Result
+>(
+  unionA: UnionObj<A>,
+  unionB: UnionObj<B>,
+  matchObj: CasesForTwo<A, B, Result>
+  // matchObj: MatchCasesForTwo<A, B, Result>
+): ((a: UnionVal<A>, b: UnionVal<B>) => Result) => {
+  return null as any;
+};
+type Test2 = MatchCasesForTwo<{ a: Of<[Unit]> }, { b: Of<[string]> }, number>;
+
+const t: Test2 = {
+  a: { b: (pa, pb) => 5 },
+  default: (a, b) => 1,
+};
+
+// --------------------------------------------------------
 export interface UnionFunc {
   <R extends RequiredRecordType>(record: R): UnionObj<R>;
   <R extends RequiredRecordType>(ctor: (g: Generic) => R): GenericUnionObj<R>;
