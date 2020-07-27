@@ -331,16 +331,25 @@ export const matchTwo = <
 >(
   unionA: UnionObj<A>,
   unionB: UnionObj<B>,
-  matchObj: CasesForTwo<A, B, Result>
+  // matchObj: CasesTwo<A, B, Result>
   // matchObj: MatchCasesForTwo<A, B, Result>
+  matchObj: {
+    [KA in keyof A]?: {
+      [KB in keyof B]?: MatchCaseFuncTwo<A[KA], B[KB], Result>;
+      // [KB in keyof B]?: (a: A[KA], b: B[KB]) => Result;
+    };
+  } & {
+    default: (a: UnionVal<A>, b: UnionVal<B>) => Result;
+  }
 ): ((a: UnionVal<A>, b: UnionVal<B>) => Result) => {
   return null as any;
 };
+
 type Test2 = MatchCasesForTwo<{ a: Of<[Unit]> }, { b: Of<[string]> }, number>;
 
 const t: Test2 = {
   a: { b: (pa, pb) => 5 },
-  default: (a, b) => 1,
+  // default: (a, b) => 1,
 };
 
 // --------------------------------------------------------

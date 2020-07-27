@@ -352,10 +352,10 @@ type RecordA = typeof casesState;
 
 const Ev = Union(casesEv);
 
-const updateFunction = matchTwo(State, Ev, {
+const updateFunction = matchTwo<RecordA, RecordB, number>(State, Ev, {
   Loading: {
-    ErrorHappened: (_, err): typeof State.T => State.Error(err),
-    DataFetched: (_, data) => State.Loaded(data),
+    ErrorHappened: (_, err) => 1,
+    DataFetched: (_, data) => 2
   },
 
   Loaded: {
@@ -364,17 +364,18 @@ const updateFunction = matchTwo(State, Ev, {
       var llll: number
       var dddd = data
       var llll = loaded
-      return State.Loaded(data + loaded);
+      return 3
     }
   },
 
-  default: (prevState, ev) => prevState,
+  default: (prevState, ev) => 3,
 });
-const rrr = updateFunction()
+var rrr: number;
+var rrr = updateFunction(State.Loading, Ev.DataFetched(10))
 
 const updateFunction2 = matchTwo(Ev, State, {
   ErrorHappened: { Loading: ( err, _) => State.Error(err)},
-  DataFetched: {Loading: (data,) => State.Loaded(data)},
+  DataFetched: {Loading: (data,_) => State.Loaded(data)},
   Loading: {
   },
 
