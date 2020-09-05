@@ -28,6 +28,7 @@ export interface ForbidDefault {
 export type ForbidReservedProps = {
   readonly if?: never;
   readonly match?: never;
+  readonly matchWith?: never;
   readonly T?: never;
 } & ForbidDefault;
 
@@ -250,13 +251,22 @@ export type Unpack<Rec> = { [K in keyof Rec]: UnpackFunc<Rec[K], Rec> };
 export type UnpackG<Rec> = { [K in keyof Rec]: UnpackFuncG<Rec[K], Rec> };
 
 // --------------------------------------------------------
-export type UnionObj<Rec> = {
-  match: MatchFunc<Rec>;
+type UnionDesc<Rec> = {
   if: Unpack<Rec>;
   T: UnionVal<Rec>;
+  match: MatchFunc<Rec>;
+  matchWith: Rec extends SingleDataRecordType
+    ? <Other extends SingleDataRecordType, Result>(
+        other: UnionDesc<Other>,
+        matchObj: MatchCasesForTwo<Rec, Other, Result>
+      ) => (a: UnionVal<Rec>, b: UnionVal<Other>) => Result
+    : never;
 } & Constructors<Rec>;
 
-export type GenericUnionObj<Rec> = {
+export type UnionObj<Rec> = UnionDesc<Rec>;
+
+// export type GenericUnionObj<Rec> = {
+export type GenericUnionDesc<Rec> = {
   match: MatchFuncG<Rec>;
   if: UnpackG<Rec>;
   T: UnionValG<unknown, Rec>;
@@ -277,42 +287,15 @@ type TypeOfLeg<Leg> = Leg extends Of<infer A>
   : never;
 
 export type MatchCaseFuncTwo<LegA, LegB, Res> = (
-  // a: 'a',
-  // b: 'b'
   a: TypeOfLeg<LegA>,
   b: TypeOfLeg<LegB>
 ) => Res;
 
-//   K extends Of<infer A>
-//   ? A extends [void]
-//     ? () => Res
-//     : A extends [Unit]
-//     ? () => Res
-//     : A extends any[]
-//     ? (...p: A) => Res
-//     : never
-//   : K extends Const<infer C>
-//   ? (c: C) => Res
-//   : never;
-
-// export type CasesTwo<RecordA, RecordB, Result> = {
-//   [KA in keyof RecordA]: {
-//     [KB in keyof RecordB]: MatchCaseFuncTwo<RecordA[KA], RecordB[KB], Result>;
-//   };
-// };
-
 export type CasesTwo<RecordA, RecordB, Result> = {
   [KA in keyof RecordA]?: {
     [KB in keyof RecordB]?: MatchCaseFuncTwo<RecordA[KA], RecordB[KB], Result>;
-    // [KB in keyof RecordB]?: (a: RecordA[KA], b: RecordB[KB]) => Result;
   };
 };
-
-type Test = CasesTwo<
-  { a: TypeOfLeg<Of<[Unit]>> },
-  { b: TypeOfLeg<Of<[string]>> },
-  number
->;
 
 export type MatchCasesForTwo<RecordA, RecordB, Result> = CasesTwo<
   RecordA,
@@ -322,40 +305,10 @@ export type MatchCasesForTwo<RecordA, RecordB, Result> = CasesTwo<
   default: (a: UnionVal<RecordA>, b: UnionVal<RecordB>) => Result;
 };
 
-type Exact<T extends { [key: string]: any }> = { [K in keyof T]: T[K] };
-
-export const matchTwo = <
-  A extends SingleDataRecordType,
-  B extends SingleDataRecordType,
-  Result
->(
-  unionA: UnionObj<A>,
-  unionB: UnionObj<B>,
-  // matchObj: CasesTwo<A, B, Result>
-  // matchObj: MatchCasesForTwo<A, B, Result>
-  matchObj: {
-    [KA in keyof A]?: {
-      [KB in keyof B]?: MatchCaseFuncTwo<A[KA], B[KB], Result>;
-      // [KB in keyof B]?: (a: A[KA], b: B[KB]) => Result;
-    };
-  } & {
-    default: (a: UnionVal<A>, b: UnionVal<B>) => Result;
-  }
-): ((a: UnionVal<A>, b: UnionVal<B>) => Result) => {
-  return null as any;
-};
-
-type Test2 = MatchCasesForTwo<{ a: Of<[Unit]> }, { b: Of<[string]> }, number>;
-
-const t: Test2 = {
-  a: { b: (pa, pb) => 5 },
-  // default: (a, b) => 1,
-};
-
 // --------------------------------------------------------
 export interface UnionFunc {
-  <R extends RequiredRecordType>(record: R): UnionObj<R>;
-  <R extends RequiredRecordType>(ctor: (g: Generic) => R): GenericUnionObj<R>;
+  <R extends RequiredRecordType>(record: R): UnionDesc<R>;
+  <R extends RequiredRecordType>(ctor: (g: Generic) => R): GenericUnionDesc<R>;
 }
 
 export const Union: UnionFunc = <R extends RequiredRecordType>(
@@ -368,9 +321,42 @@ export const Union: UnionFunc = <R extends RequiredRecordType>(
 
   // tslint:disable-next-line:prefer-object-spread
   return Object.assign(
-    { if: createUnpack(record), match },
+    {
+      if: createUnpack(record),
+      match: (a: any, b?: any) =>
+        b ? evalMatch(a, b) : (val: any) => evalMatch(val, a),
+      matchWith: <Other extends SingleDataRecordType, Result>(
+        _other: UnionDesc<Other>, // yep, it is only used to "remember" type
+        matchObj: MatchCasesForTwo<R, Other, Result>
+      ) => createMatchTupleFunction(matchObj),
+    },
     createConstructors(record, typeof recOrFunc === 'function')
   ) as any;
+};
+
+const createMatchTupleFunction = <
+  A extends RequiredRecordType,
+  B extends RequiredRecordType,
+  Result
+>(
+  matchObj: MatchCasesForTwo<A, B, Result>
+) => {
+  const { default: def } = matchObj;
+  return function matchTuple(a: UnionVal<A>, b: UnionVal<B>): Result {
+    const { p0: valA, k: keyA } = (a as unknown) as Value;
+    const { p0: valB, k: KeyB } = (b as unknown) as Value;
+
+    if (keyA in matchObj) {
+      const inner = matchObj[keyA];
+      if (inner !== undefined && KeyB in inner) {
+        const matchedFunction = inner[KeyB];
+        if (matchedFunction !== undefined) {
+          return matchedFunction(valA, valB);
+        }
+      }
+    }
+    return def(a, b);
+  };
 };
 
 const evalMatch = <Record extends RecordDict>(
@@ -381,9 +367,6 @@ const evalMatch = <Record extends RecordDict>(
   const handler = cases[getKey(val)] as any;
   return handler ? invoke(val, handler) : cases.default && cases.default(val);
 };
-
-const match: MatchFunc<unknown> = (a: any, b?: any) =>
-  b ? evalMatch(a, b) : (val: any) => evalMatch(val, a);
 
 const createConstructors = <Record extends RecordDict>(
   rec: Record,
@@ -451,7 +434,7 @@ type Value = {
   p0: any;
   p1: any;
   p2: any;
-  a: number;
+  a: 0 | 1 | 2 | 3;
 };
 
 const invoke = (val: Value, f: (...args: any[]) => any) => {
@@ -470,5 +453,5 @@ const invoke = (val: Value, f: (...args: any[]) => any) => {
 const getKey = (val: Value) => val.k;
 // const getParams = (val: any) => val.p;
 
-const arity = (p0: any, p1: any, p2: any): number =>
+const arity = (p0: any, p1: any, p2: any): 0 | 1 | 2 | 3 =>
   p2 !== undefined ? 3 : p1 !== undefined ? 2 : p0 !== undefined ? 1 : 0;

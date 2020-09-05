@@ -84,6 +84,109 @@ const str = PaymentMethod.if.Check(
 ); // str === 'not check'
 ```
 
+### **EXPERIMENTAL** `matchWith`
+
+WARNING: This API is experimental and currently more of an MVP.
+
+Often we want to match a union with another union. A good example of this if we try to model a state transition in `useReducer` in React or model a state machine.
+
+This is what you have to do currently:
+
+```ts
+const State = Union({
+  Loading: of(null),
+  Loaded: of<number>(),
+  Err: of<string>(),
+});
+
+const Ev = Union({
+  ErrorHappened: of<string>(),
+  DataFetched: of<number>(),
+});
+
+const { Loaded, Err, Loading } = State;
+
+const transition = (prev: typeof State.T, ev: typeof Ev.T) =>
+  State.match(prev, {
+    Loading: () =>
+      Ev.match(ev, {
+        ErrorHappened: (err) => Err(err),
+        DataFetched: (data) => Loaded(data),
+      }),
+
+    Loaded: (loadedData) =>
+      // just add to the current loaded value as an example
+      Ev.if.DataFetched(
+        ev,
+        (data) => Loaded(loadedData + data),
+        () => prev
+      ),
+
+    default: (s) => s,
+  });
+```
+
+It gets worse and more verbose when complexity grows, also you have to match the `Ev` in each variant of `State`.
+
+In my experience this comes up often enough to justify a dedicated API for matching a pair:
+
+```ts
+import { Union, of } from 'ts-union';
+
+const State = Union({
+  Loading: of(null),
+  Loaded: of<number>(),
+  Err: of<string>(),
+});
+
+const Ev = Union({
+  ErrorHappened: of<string>(),
+  DataFetched: of<number>(),
+});
+
+const { Loaded, Err, Loading } = State;
+
+const transition = State.matchWith(Ev, {
+  Loading: {
+    ErrorHappened: (_, err) => Err(err),
+    DataFetched: (_, data) => Loaded(data),
+  },
+
+  Loaded: {
+    DataFetched: (loaded, data) => Loaded(loaded + data),
+  },
+
+  default: (prevState, ev) => prevState,
+});
+
+// usage
+const newState = transition(Loading, Ev.ErrorHappened('oops')); // <-- State.Err('oops')
+```
+
+`transition` is a function with type signature: (prev: State, ev: Ev) => State.
+Note that the return type is **inferred**, meaning that you can return whatever type you want :)
+
+```ts
+const logLoadingTransition = State.matchWith(Ev, {
+  Loading: {
+    ErrorHappened: (_, err) => 'Oops, error happened: ' + err,
+    DataFetched: (_, data) => 'Data loaded with: ' + data.toString(),
+  },
+  default: () => '',
+});
+```
+
+#### Caveats
+
+1. Doesn't support generic version (yet?)
+2. Doesn't work with unions that have more than 1 arguments in variants. E.g. `of<string, number>()` will give an incomprehensible type error.
+3. You cannot pass additional data to the update function. I'm tinkering about something like this for the future releases:
+
+```ts
+const transition = State.matchWith(Ev, {...}, of<SomeContext>());
+transition = (prev, ev, someContextValue);
+```
+
 ### Two ways to specify variants with no payload
 
 You can define variants with no payload with either `of(null)` or `of<void>()`;

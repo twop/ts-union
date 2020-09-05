@@ -1,12 +1,6 @@
 // tslint:disable:no-expression-statement
 // tslint:disable-next-line:no-implicit-dependencies
-import {
-  GenericValType,
-  of,
-  Union,
-  matchTwo,
-  MatchCasesForTwo,
-} from '../src/index';
+import { GenericValType, of, Union } from '../src/index';
 
 // tslint:disable-next-line:no-object-literal-type-assertion
 const U = Union({
@@ -334,62 +328,48 @@ test('shorthand for declaring cases momoizes the value in generics', () => {
   expect(G.Nope<boolean>()).toBe(G.Nope<boolean>());
 });
 
-const casesState = {
-  Loading: of(null),
-  Loaded: of<number>(),
-  Error: of<string>(),
-};
+test('it can correctly create matchWith function', () => {
+  const State = Union({
+    Loading: of(null),
+    Loaded: of<number>(),
+    Err: of<string>(),
+  });
 
-const State = Union(casesState);
+  const Ev = Union({
+    ErrorHappened: of<string>(),
+    DataFetched: of<number>(),
+  });
 
-const casesEv = {
-  ErrorHappened: of<string>(),
-  DataFetched: of<number>(),
-};
+  const { Loaded, Err, Loading } = State;
 
-type RecordB = typeof casesEv;
-type RecordA = typeof casesState;
+  const transition = State.matchWith(Ev, {
+    Loading: {
+      ErrorHappened: (_, err) => Err(err),
+      DataFetched: (_, data) => Loaded(data),
+    },
 
-const Ev = Union(casesEv);
+    Loaded: {
+      DataFetched: (loaded, data) => Loaded(loaded + data),
+    },
 
-const updateFunction = matchTwo<RecordA, RecordB, number>(State, Ev, {
-  Loading: {
-    ErrorHappened: (_, err) => 1,
-    DataFetched: (_, data) => 2
-  },
+    default: (prevState, ev) => prevState,
+  });
 
-  Loaded: {
-    DataFetched: (loaded, data) => {
-      var dddd: number
-      var llll: number
-      var dddd = data
-      var llll = loaded
-      return 3
-    }
-  },
+  const { ErrorHappened, DataFetched } = Ev;
 
-  default: (prevState, ev) => 3,
+  // declared cases
+  expect(transition(Loading, ErrorHappened('oops'))).toEqual(Err('oops'));
+  expect(transition(Loading, DataFetched(1))).toEqual(Loaded(1));
+  expect(transition(Loaded(1), DataFetched(1))).toEqual(Loaded(2));
+  // fallback to default
+  expect(transition(Loaded(1), ErrorHappened('oops'))).toEqual(Loaded(1));
+
+  // WHY!!!???
+  const logLoadingTransition = State.matchWith(Ev, {
+    Loading: {
+      ErrorHappened: (_, err) => 'Oops, error happened: ' + err,
+      DataFetched: (_, data) => 'Data loaded with: ' + data.toString(),
+    },
+    default: () => undefined,
+  });
 });
-var rrr: number;
-var rrr = updateFunction(State.Loading, Ev.DataFetched(10))
-
-const updateFunction2 = matchTwo(Ev, State, {
-  ErrorHappened: { Loading: ( err, _) => State.Error(err)},
-  DataFetched: {Loading: (data,_) => State.Loaded(data)},
-  Loading: {
-  },
-
-  Loaded: {
-    DataFetched: (loaded, data) => {
-      var dddd: number
-      var llll: number
-      var dddd = data
-      var llll = loaded
-      return State.Loaded(data + loaded),
-    }
-  },
-
-  default: (prevState, ev) => prevState,
-});
-
-const newState = updateFunction(State.Loading, Ev.DataFetched(5));
