@@ -59,10 +59,7 @@ export interface UnionValG<P, Record> {
   readonly _type: P;
 }
 
-export type GenericValType<Type, Val> = Val extends UnionValG<
-  infer _Type,
-  infer Rec
->
+export type GenericValType<Type, Val> = Val extends UnionValG<infer _Type, infer Rec>
   ? UnionValG<Type, Rec>
   : never;
 
@@ -153,19 +150,12 @@ export type MatchCasesG<Rec, Result, P> =
 
 // --------------------------------------------------------
 export interface MatchFunc<Record> {
-  <Result>(cases: MatchCases<Record, Result>): (
-    val: UnionVal<Record>
-  ) => Result;
+  <Result>(cases: MatchCases<Record, Result>): (val: UnionVal<Record>) => Result;
   <Result>(val: UnionVal<Record>, cases: MatchCases<Record, Result>): Result;
 }
 export interface MatchFuncG<Record> {
-  <Result, P>(cases: MatchCasesG<Record, Result, P>): (
-    val: UnionValG<P, Record>
-  ) => Result;
-  <Result, P>(
-    val: UnionValG<P, Record>,
-    cases: MatchCasesG<Record, Result, P>
-  ): Result;
+  <Result, P>(cases: MatchCasesG<Record, Result, P>): (val: UnionValG<P, Record>) => Result;
+  <Result, P>(val: UnionValG<P, Record>, cases: MatchCasesG<Record, Result, P>): Result;
 }
 
 // --------------------------------------------------------
@@ -183,11 +173,7 @@ export type UnpackFunc<K, Rec> = K extends Of<infer A>
     : A extends any[]
     ? {
         <R>(val: UnionVal<Rec>, f: (...p: A) => R): R | undefined;
-        <R>(
-          val: UnionVal<Rec>,
-          f: (...p: A) => R,
-          els: (v: UnionVal<Rec>) => R
-        ): R;
+        <R>(val: UnionVal<Rec>, f: (...p: A) => R, els: (v: UnionVal<Rec>) => R): R;
       }
     : never
   : K extends Const<infer С>
@@ -201,48 +187,28 @@ export type UnpackFuncG<K, Rec> = K extends Of<infer A>
   ? A extends [void]
     ? {
         <R, P>(val: UnionValG<P, Rec>, f: () => R): R | undefined;
-        <R, P>(
-          val: UnionValG<P, Rec>,
-          f: () => R,
-          els: (v: UnionValG<P, Rec>) => R
-        ): R;
+        <R, P>(val: UnionValG<P, Rec>, f: () => R, els: (v: UnionValG<P, Rec>) => R): R;
       }
     : A extends [Unit]
     ? {
         <R, P>(val: UnionValG<P, Rec>, f: () => R): R | undefined;
-        <R, P>(
-          val: UnionValG<P, Rec>,
-          f: () => R,
-          els: (v: UnionValG<P, Rec>) => R
-        ): R;
+        <R, P>(val: UnionValG<P, Rec>, f: () => R, els: (v: UnionValG<P, Rec>) => R): R;
       }
     : A extends [Generic]
     ? {
         <R, P>(val: UnionValG<P, Rec>, f: (val: P) => R): R | undefined;
-        <R, P>(
-          val: UnionValG<P, Rec>,
-          f: (val: P) => R,
-          els: (v: UnionValG<P, Rec>) => R
-        ): R;
+        <R, P>(val: UnionValG<P, Rec>, f: (val: P) => R, els: (v: UnionValG<P, Rec>) => R): R;
       }
     : A extends any[]
     ? {
         <R, P>(val: UnionValG<P, Rec>, f: (...p: A) => R): R | undefined;
-        <R, P>(
-          val: UnionValG<P, Rec>,
-          f: (...p: A) => R,
-          els: (v: UnionValG<P, Rec>) => R
-        ): R;
+        <R, P>(val: UnionValG<P, Rec>, f: (...p: A) => R, els: (v: UnionValG<P, Rec>) => R): R;
       }
     : never
   : K extends Const<infer С>
   ? {
       <R, P>(val: UnionValG<P, Rec>, f: (с: С) => R): R | undefined;
-      <R, P>(
-        val: UnionValG<P, Rec>,
-        f: (с: С) => R,
-        els: (v: UnionValG<P, Rec>) => R
-      ): R;
+      <R, P>(val: UnionValG<P, Rec>, f: (с: С) => R, els: (v: UnionValG<P, Rec>) => R): R;
     }
   : never;
 
@@ -286,10 +252,7 @@ type TypeOfLeg<Leg> = Leg extends Of<infer A>
     : never
   : never;
 
-export type MatchCaseFuncTwo<LegA, LegB, Res> = (
-  a: TypeOfLeg<LegA>,
-  b: TypeOfLeg<LegB>
-) => Res;
+export type MatchCaseFuncTwo<LegA, LegB, Res> = (a: TypeOfLeg<LegA>, b: TypeOfLeg<LegB>) => Res;
 
 export type CasesTwo<RecordA, RecordB, Result> = {
   [KA in keyof RecordA]?: {
@@ -297,11 +260,7 @@ export type CasesTwo<RecordA, RecordB, Result> = {
   };
 };
 
-export type MatchCasesForTwo<RecordA, RecordB, Result> = CasesTwo<
-  RecordA,
-  RecordB,
-  Result
-> & {
+export type MatchCasesForTwo<RecordA, RecordB, Result> = CasesTwo<RecordA, RecordB, Result> & {
   default: (a: UnionVal<RecordA>, b: UnionVal<RecordB>) => Result;
 };
 
@@ -315,16 +274,13 @@ export const Union: UnionFunc = <R extends RequiredRecordType>(
   recOrFunc: ((g: Generic) => R) | R
 ) => {
   const record =
-    typeof recOrFunc === 'function'
-      ? recOrFunc((undefined as unknown) as Generic)
-      : recOrFunc;
+    typeof recOrFunc === 'function' ? recOrFunc((undefined as unknown) as Generic) : recOrFunc;
 
   // tslint:disable-next-line:prefer-object-spread
   return Object.assign(
     {
       if: createUnpack(record),
-      match: (a: any, b?: any) =>
-        b ? evalMatch(a, b) : (val: any) => evalMatch(val, a),
+      match: (a: any, b?: any) => (b ? evalMatch(a, b) : (val: any) => evalMatch(val, a)),
       matchWith: <Other extends SingleDataRecordType, Result>(
         _other: UnionDesc<Other>, // yep, it is only used to "remember" type
         matchObj: MatchCasesForTwo<R, Other, Result>
@@ -389,9 +345,7 @@ const createCtor = <K extends keyof Record, Record extends RecordDict>(
 
   // it means that it was constructed with of(null)
   if (val === null) {
-    const frozenVal = Object.freeze(
-      makeValue(key, undefined, undefined, undefined)
-    ) as any;
+    const frozenVal = Object.freeze(makeValue(key, undefined, undefined, undefined)) as any;
     return isGeneric ? () => frozenVal : frozenVal;
   }
 
@@ -404,9 +358,7 @@ const createCtor = <K extends keyof Record, Record extends RecordDict>(
   return ((p0: any, p1: any, p2: any) => makeValue(key, p0, p1, p2)) as any;
 };
 
-const createUnpack = <Record extends RecordDict>(
-  rec: Record
-): Unpack<Record> => {
+const createUnpack = <Record extends RecordDict>(rec: Record): Unpack<Record> => {
   const result: Partial<Unpack<Record>> = {};
   // tslint:disable-next-line:forin
   for (const key in rec) {
